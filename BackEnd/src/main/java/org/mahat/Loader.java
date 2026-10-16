@@ -11,7 +11,7 @@ import static org.mahat.utils.Constants.CONFIG_PATH;
 public class Loader {
     private static final Logger LOGGER = LogManager.getLogger(Loader.class);
     public static void main(String[] args) {
-        LOGGER.info("****   Secure Drop started!   ****");
+        LOGGER.info("****   Cyphernod started!   ****");
         if (!System.getenv().containsKey(CONFIG_PATH)) {
             LOGGER.error("No configuration file found! Shutting down.");
             System.exit(500);

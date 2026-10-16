@@ -15,7 +15,7 @@ public class S3Endpoint {
     private final Logger LOGGER = LogManager.getLogger(S3Endpoint.class);
     private final Server server = Server.getInstance();
     private final MinioClient minioClient;
-    private final String BUCKET = "secure-drop";
+    private final String BUCKET = "cyphernod";
 
     public S3Endpoint() {
         minioClient = MinioClient.builder()
@@ -26,7 +26,7 @@ public class S3Endpoint {
             boolean found = minioClient.bucketExists(BucketExistsArgs.builder().bucket(BUCKET).build());
             if (!found) {
                 minioClient.makeBucket(MakeBucketArgs.builder().bucket(BUCKET).build());
-                LOGGER.info("Bucket secure-drop created on the S3 server!");
+                LOGGER.info("Bucket cyphernod created on the S3 server!");
             }
         } catch (Exception e) {
             LOGGER.info("Failed to initiate S3 bucket! Shutting down");

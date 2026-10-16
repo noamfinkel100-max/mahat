@@ -23,7 +23,7 @@ public class DownloadHandler extends AbstractVerticle {
     @Override
     public void start(Promise<Void> startPromise) {
         Router router = server.router();
-        router.route(HttpMethod.GET, "/download").handler(this::downloadFile);
+        router.route(HttpMethod.POST, "/download").handler(this::downloadFile);
         startPromise.complete();
     }
 

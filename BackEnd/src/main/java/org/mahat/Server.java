@@ -50,7 +50,7 @@ public class Server {
                 .compose(this::deployVerticals)
                 .compose(this::startHttpServer)
                 .onSuccess(actualPort -> {
-                    String message = "*** The Secure Drop server has started successfully ***";
+                    String message = "*** The Cyphernod server has started successfully ***";
                     String stars = "*".repeat(message.length());
                     LOGGER.info(stars);
                     LOGGER.info(message);
@@ -93,7 +93,7 @@ public class Server {
         router.route().handler(CorsHandler.create()
                 .allowedHeaders(allowedHeaders)
                 .allowedMethods(allowedMethods));
-        router.route().handler(BodyHandler.create().setUploadsDirectory("C:\\Secure Drop").setDeleteUploadedFilesOnEnd(true));
+        router.route().handler(BodyHandler.create().setUploadsDirectory("C:\\cyphernod").setDeleteUploadedFilesOnEnd(true));
 
         return Future.succeededFuture();
     }

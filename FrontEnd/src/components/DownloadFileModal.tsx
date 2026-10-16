@@ -43,7 +43,8 @@ const DownloadFileModal: React.FC<DownloadFileModalProps> = ({ opened, close, fi
     onError: (err) => {
       console.error(err);
       setNotification({
-        message: 'Failed to download the file, please check your decryption code.',
+        message:
+          'Download failed. Check the decryption code or re-upload this file using the current app version.',
         type: 'error',
       });
       setIsLoading(false);

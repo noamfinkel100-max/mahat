@@ -10,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import org.mahat.Server;
 import org.mahat.enpoints.S3Endpoint;
 
+import javax.crypto.AEADBadTagException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,13 +29,12 @@ public class DownloadHandler extends AbstractVerticle {
     }
 
     private void downloadFile(RoutingContext context) {
-        LOGGER.info("Received request to download file! Staring to handle it.");
+        LOGGER.info("Received request to download file! Starting to handle it.");
         String fileName = context.body().asJsonObject().getString("fileName");
         String code = context.body().asJsonObject().getString("code");
         s3Endpoint.download(fileName)
                 .onSuccess(encryptedData -> {
-                    InputStream decryptedData = Encryptor.decrypt(encryptedData, code);
-                    try {
+                    try (encryptedData; InputStream decryptedData = Encryptor.decrypt(encryptedData, code)) {
                         Path tempFilePath = Files.createTempFile("download-", "-" + fileName);
                         Files.copy(decryptedData, tempFilePath, StandardCopyOption.REPLACE_EXISTING);
                         context.response()
@@ -54,6 +54,14 @@ public class DownloadHandler extends AbstractVerticle {
                                         LOGGER.warn("Failed to delete temp file %s! The error: %s.".formatted(fileName, e.getMessage()));
                                     }
                                 });
+                    } catch (AEADBadTagException e) {
+                        LOGGER.warn("Incorrect decryption code provided for file %s.".formatted(fileName));
+                        context.response().setStatusCode(400).end("Incorrect decryption code.");
+                    } catch (Encryptor.UnsupportedEncryptedFileException e) {
+                        LOGGER.warn("File %s uses an unsupported encryption format.".formatted(fileName));
+                        context.response().setStatusCode(400).end(e.getMessage());
+                    } catch (IllegalArgumentException e) {
+                        context.response().setStatusCode(400).end(e.getMessage());
                     } catch (Exception e) {
                         String message = "Failed to download file from S3! The error: %s.".formatted(e.getMessage());
                         LOGGER.error(message);

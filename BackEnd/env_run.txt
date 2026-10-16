@@ -1,0 +1,6 @@
+for mongo ->
+    cd C:\Program Files\MongoDB\Server\7.0\bin
+    mongod
+
+for minio ->
+    .\minio.exe server C:\data\minio --console-address ":9001"

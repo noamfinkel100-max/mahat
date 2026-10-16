@@ -1,7 +1,7 @@
 {
   "EXPOSED_PORT": 12000,
   "MONGO_URL": "mongodb://localhost:27017",
-  "MONGO_DB_NAME": "secure_drop",
+  "MONGO_DB_NAME": "cyphernod",
   "S3_ENDPOINT": "http://localhost:9000",
   "S3_ACCESS_KEY": "minioadmin",
   "S3_SECRET_KEY": "minioadmin"

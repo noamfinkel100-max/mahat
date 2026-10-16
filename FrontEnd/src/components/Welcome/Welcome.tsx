@@ -6,9 +6,9 @@ export function Welcome() {
     <>
       <Title className={classes.title} ta="center" mt={100}>
         <Text inherit variant="gradient" component="span" gradient={{ from: 'pink', to: 'yellow' }}>
-          Secure
+          Cypher
         </Text>
-        Drop
+        Nod
       </Title>
       <Text c="dimmed" ta="center" size="lg" maw={580} mx="auto" mt="xl" dir="rtl">
        בוא נשמור על הקבצים שלך בטוחים!

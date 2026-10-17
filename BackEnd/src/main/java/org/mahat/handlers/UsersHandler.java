@@ -49,15 +49,15 @@ public class UsersHandler extends AbstractVerticle {
             mongoEndpoint.login(credentials)
                     .onSuccess(mongoUserData -> {
                         if (mongoUserData == null) {
-                            LOGGER.warn("Unrecognized user tried to login! %s - %s.".formatted(credentials.name(), credentials.password()));
+                            LOGGER.warn("Unrecognized user tried to login! %s.".formatted(credentials.name()));
                             context.response().setStatusCode(401).end();
                             return;
                         }
                         server.userLogIn(mongoUserData);
-                        JsonObject files = new JsonObject()
-                                .put("myFiles", server.gson().toJson(mongoUserData.myFiles()))
-                                .put("sharedWithMe", server.gson().toJson(mongoUserData.sharedWithMe()));
-                        context.response().setStatusCode(200).end(files.toString());
+                        context.response()
+                                .putHeader("Content-Type", "application/json")
+                                .setStatusCode(200)
+                                .end(userFilesResponse(mongoUserData));
                         LOGGER.info("User %s logged on successfully!".formatted(mongoUserData.name()));
                     })
                     .onFailure(error -> {
@@ -78,6 +78,12 @@ public class UsersHandler extends AbstractVerticle {
         try {
             String body = context.body().asString();
             UserCredentials userSignUp = server.gson().fromJson(body, UserCredentials.class);
+            if (userSignUp == null || userSignUp.name() == null || userSignUp.name().isBlank()
+                    || userSignUp.password() == null || userSignUp.password().isBlank()) {
+                context.response().setStatusCode(400).end("Name and password are required.");
+                return;
+            }
+
             mongoEndpoint.checkUserExists(userSignUp.name())
                     .onSuccess(exist -> {
                         if (exist) {
@@ -88,10 +94,21 @@ public class UsersHandler extends AbstractVerticle {
                         }
 
                         mongoEndpoint.saveNewUser(MongoUser.fromCredentials(userSignUp))
-                                .onSuccess(success -> {
+                                .onSuccess(userId -> {
+                                    MongoUser newUser = new MongoUser(
+                                            userId,
+                                            userSignUp.name(),
+                                            userSignUp.password(),
+                                            java.util.Map.of(),
+                                            java.util.List.of()
+                                    );
+                                    server.userLogIn(newUser);
                                     String message = "User %s Added successfully!".formatted(userSignUp.name());
                                     LOGGER.info(message);
-                                    context.response().setStatusCode(201).end();
+                                    context.response()
+                                            .putHeader("Content-Type", "application/json")
+                                            .setStatusCode(201)
+                                            .end(userFilesResponse(newUser));
                                 })
                                 .onFailure(error -> {
                                     String message = "Failed to save new user %s. The error: %s.".formatted(userSignUp.name(), error.getMessage());
@@ -124,5 +141,13 @@ public class UsersHandler extends AbstractVerticle {
                     LOGGER.error(message);
                     context.response().setStatusCode(500).end(message);
                 });
+    }
+
+    private String userFilesResponse(MongoUser user) {
+        return new JsonObject()
+                .put("userId", user._id())
+                .put("myFiles", user.myFiles())
+                .put("sharedWithMe", user.sharedWithMe())
+                .toString();
     }
 }

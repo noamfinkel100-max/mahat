@@ -1,4 +1,5 @@
-import { FilesContext, filesStateType } from '@/App';
+import { FilesContext } from '@/App';
+import { parseUserSession } from '@/utils/userSession';
 import {
   Text,
   Input,
@@ -28,20 +29,20 @@ const LogInPage = () => {
   const [userInput, setUserInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [error, setError] = useState('');
-  const { filesState, setFilesState } = useContext(FilesContext);
+  const { setFilesState } = useContext(FilesContext);
   const navigate = useNavigate();
 
   const login = useMutation({
-    mutationFn: (newUser: user) => {
-      return axios.post('http://localhost:12000/login', newUser);
+    mutationFn: async (newUser: user) => {
+      const response = await axios.post('http://localhost:12000/login', newUser);
+      const session = parseUserSession(response.data, newUser.name);
+      if (!session) {
+        throw new Error('Login succeeded, but the server returned invalid account data.');
+      }
+      return session;
     },
-    onSuccess: (res) => {
-      setFilesState({
-        ...filesState,
-        user: userInput,
-        myFiles: JSON.parse(res.data.myFiles),
-        sharedWithMe: JSON.parse(res.data.sharedWithMe),
-      } as filesStateType);
+    onSuccess: (session) => {
+      setFilesState(session);
       navigate('/myfiles');
     },
     onError: (err) => {

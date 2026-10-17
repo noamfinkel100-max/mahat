@@ -6,6 +6,7 @@ import { theme } from './theme';
 import React, { useState } from 'react';
 
 export type filesStateType = {
+  userId: string;
   user: string;
   myFiles: Record<string, string>;
   sharedWithMe: string[];

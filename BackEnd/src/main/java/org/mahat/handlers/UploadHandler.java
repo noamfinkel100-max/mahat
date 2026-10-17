@@ -41,7 +41,7 @@ public class UploadHandler extends AbstractVerticle {
             String fileName = uploadedFiles.get(0).fileName();
             String contentType = uploadedFiles.get(0).contentType();
             long fileSize = uploadedFiles.get(0).size();
-            s3Endpoint.upload(encryptedData, fileSize, fileName, contentType)
+            s3Endpoint.upload(encryptedData, Math.addExact(fileSize, Encryptor.ENCRYPTION_OVERHEAD), fileName, contentType)
                     .compose(ignore -> mongoEndpoint.addFile(server.users().get(userId), uploadedFiles.get(0).fileName(), code, true))
                     .onSuccess(updatedUser -> {
                         LOGGER.info("File %s that was sent by %s was uploaded successfully!".formatted(uploadedFiles.get(0).fileName(), updatedUser.name()));

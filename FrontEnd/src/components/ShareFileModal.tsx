@@ -10,8 +10,12 @@ interface UploadFileModalProps {
   close: VoidFunction;
 }
 
+type UserSummary = {
+  name: string;
+  _id: string;
+};
+
 const ShareFileModal: React.FC<UploadFileModalProps> = ({ opened, close, fileName }) => {
-  console.log(fileName);
   const { filesState } = useContext(FilesContext);
   const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
 
@@ -28,14 +32,22 @@ const ShareFileModal: React.FC<UploadFileModalProps> = ({ opened, close, fileNam
     },
   });
 
-  const allusers = allusersRequest.data?.data?.map((datum: any) => datum?.map ?? null) as {
-    name: string;
-    _id: string;
-  }[];
+  const userData = (allusersRequest.data?.data ?? []) as Array<{
+    map?: UserSummary;
+    name?: string;
+    _id?: string;
+  }>;
+  const allusers: UserSummary[] = userData
+    .map((datum) => {
+      if (datum.map) return datum.map;
+      if (datum.name && datum._id) return { name: datum.name, _id: datum._id };
+      return null;
+    })
+    .filter((user): user is UserSummary => user !== null);
 
-  const selectedIds = selectedPeople.map(
-    (username) => allusers.find((user) => user.name === username)?._id
-  );
+  const selectedIds = selectedPeople
+    .map((username) => allusers.find((user) => user.name === username)?._id)
+    .filter((id): id is string => Boolean(id));
 
   return (
     <>
@@ -51,7 +63,7 @@ const ShareFileModal: React.FC<UploadFileModalProps> = ({ opened, close, fileNam
         <Button
           onClick={() => {
             share.mutate({
-              allowed: selectedIds.filter((id) => id) ? (selectedIds as string[]) : [],
+              allowed: selectedIds,
               fileName,
             });
             close();

@@ -1,0 +1,195 @@
+.page {
+  min-height: calc(100vh - rem(70px));
+  background:
+    radial-gradient(ellipse at 92% 0%, light-dark(rgba(124, 58, 237, 0.08), rgba(124, 58, 237, 0.14)), transparent 32%),
+    var(--mantine-color-body);
+}
+
+.container {
+  position: relative;
+  padding-top: clamp(rem(30px), 5vw, rem(62px));
+  padding-bottom: rem(80px);
+}
+
+.notification {
+  position: fixed;
+  z-index: 110;
+  top: rem(84px);
+  right: max(var(--mantine-spacing-md), calc((100vw - rem(1320px)) / 2));
+  width: min(rem(390px), calc(100vw - rem(32px)));
+}
+
+.notice {
+  box-shadow: 0 rem(14px) rem(36px) rgba(30, 25, 55, 0.14);
+}
+
+.notice[data-type='success'] {
+  color: var(--mantine-color-teal-7);
+}
+
+.notice[data-type='error'] {
+  color: var(--mantine-color-red-7);
+}
+
+.welcomeCard {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid light-dark(rgba(124, 58, 237, 0.15), rgba(196, 181, 253, 0.17));
+  background:
+    linear-gradient(115deg, light-dark(rgba(255, 255, 255, 0.96), rgba(31, 29, 49, 0.97)) 35%, light-dark(rgba(245, 241, 255, 0.96), rgba(35, 35, 59, 0.96)));
+  box-shadow: 0 rem(20px) rem(50px) light-dark(rgba(60, 42, 104, 0.08), rgba(0, 0, 0, 0.2));
+}
+
+.welcomeGlow {
+  position: absolute;
+  top: rem(-140px);
+  right: rem(90px);
+  width: rem(400px);
+  height: rem(400px);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.15), transparent 67%);
+  pointer-events: none;
+}
+
+.welcomeContent {
+  position: relative;
+  z-index: 1;
+  min-height: rem(185px);
+}
+
+.eyebrow {
+  border: 1px solid light-dark(var(--mantine-color-violet-2), var(--mantine-color-violet-8));
+  background: light-dark(rgba(124, 58, 237, 0.08), rgba(167, 139, 250, 0.12));
+  color: light-dark(var(--mantine-color-violet-8), var(--mantine-color-violet-2));
+  letter-spacing: rem(1px);
+}
+
+.greeting {
+  color: var(--mantine-color-text);
+  font-size: clamp(rem(27px), 4vw, rem(38px));
+  font-weight: 800;
+  letter-spacing: rem(-1.3px);
+}
+
+.greeting span {
+  color: var(--mantine-color-violet-6);
+}
+
+.welcomeText {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-md);
+}
+
+.stats {
+  margin-top: var(--mantine-spacing-lg);
+}
+
+.statCard {
+  border-color: var(--mantine-color-default-border);
+  background: light-dark(rgba(255, 255, 255, 0.78), rgba(25, 24, 39, 0.76));
+}
+
+.statValue {
+  color: var(--mantine-color-text);
+  font-size: rem(24px);
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.library {
+  margin-top: var(--mantine-spacing-xl);
+  border-color: var(--mantine-color-default-border);
+  background: light-dark(rgba(255, 255, 255, 0.76), rgba(22, 21, 35, 0.82));
+}
+
+.libraryTitle {
+  color: var(--mantine-color-text);
+  font-size: rem(23px);
+  font-weight: 750;
+  letter-spacing: rem(-0.5px);
+}
+
+.search {
+  width: rem(260px);
+}
+
+.tabs :global(.mantine-Tabs-tab) {
+  font-weight: 650;
+}
+
+.tabCount {
+  display: inline-grid;
+  min-width: rem(21px);
+  height: rem(21px);
+  margin-left: rem(5px);
+  padding-inline: rem(5px);
+  place-items: center;
+  border-radius: var(--mantine-radius-xl);
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  color: var(--mantine-color-dimmed);
+  font-size: rem(11px);
+  font-weight: 700;
+}
+
+.fileCard {
+  border-color: var(--mantine-color-default-border);
+  background: light-dark(rgba(255, 255, 255, 0.88), rgba(31, 30, 47, 0.9));
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.fileCard:hover {
+  transform: translateY(rem(-3px));
+  border-color: light-dark(var(--mantine-color-violet-3), var(--mantine-color-violet-8));
+  box-shadow: 0 rem(14px) rem(28px) rgba(42, 31, 75, 0.1);
+}
+
+.fileIcon {
+  background: light-dark(var(--mantine-color-violet-0), var(--mantine-color-dark-5));
+  color: light-dark(var(--mantine-color-violet-7), var(--mantine-color-violet-3));
+}
+
+.encryptedBadge {
+  text-transform: none;
+}
+
+.fileName {
+  overflow-wrap: anywhere;
+}
+
+.shareButton,
+.downloadButton {
+  font-weight: 650;
+}
+
+.emptyState {
+  display: flex;
+  min-height: rem(230px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  background: light-dark(rgba(248, 247, 252, 0.75), rgba(28, 27, 43, 0.65));
+  text-align: center;
+}
+
+@media (max-width: $mantine-breakpoint-sm) {
+  .welcomeContent {
+    align-items: flex-start;
+  }
+
+  .library {
+    padding: var(--mantine-spacing-md);
+  }
+
+  .libraryHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .search {
+    width: 100%;
+  }
+}

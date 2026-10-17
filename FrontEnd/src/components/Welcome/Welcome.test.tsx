@@ -1,12 +1,21 @@
 import { render, screen } from '@test-utils';
+import { MemoryRouter } from 'react-router-dom';
 import { Welcome } from './Welcome';
 
 describe('Welcome component', () => {
-  it('has correct Vite guide link', () => {
-    render(<Welcome />);
-    expect(screen.getByText('this guide')).toHaveAttribute(
+  it('introduces the private file vault and provides a signup action', () => {
+    render(
+      <MemoryRouter>
+        <Welcome />
+      </MemoryRouter>
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Your files. Protected. Shared.' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /create your vault/i })).toHaveAttribute(
       'href',
-      'https://mantine.dev/guides/vite/'
+      '/signup'
     );
   });
 });

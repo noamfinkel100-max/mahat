@@ -1,0 +1,178 @@
+.page {
+  min-height: calc(100vh - rem(70px));
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 85% 8%, light-dark(rgba(124, 58, 237, 0.1), rgba(124, 58, 237, 0.15)), transparent 33%),
+    radial-gradient(ellipse at 5% 45%, light-dark(rgba(6, 182, 212, 0.07), rgba(6, 182, 212, 0.1)), transparent 35%),
+    var(--mantine-color-body);
+}
+
+.container {
+  padding-top: clamp(rem(45px), 8vw, rem(96px));
+  padding-bottom: rem(70px);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(rem(300px), 0.9fr);
+  align-items: center;
+  gap: clamp(rem(35px), 7vw, rem(100px));
+}
+
+.visual {
+  position: relative;
+  min-height: rem(440px);
+  overflow: hidden;
+  border: 1px solid light-dark(rgba(124, 58, 237, 0.12), rgba(196, 181, 253, 0.14));
+  background:
+    linear-gradient(155deg, light-dark(rgba(255, 255, 255, 0.92), rgba(29, 27, 45, 0.95)), light-dark(rgba(247, 245, 255, 0.95), rgba(19, 26, 41, 0.96)));
+  box-shadow: 0 rem(32px) rem(90px) light-dark(rgba(43, 34, 84, 0.12), rgba(0, 0, 0, 0.28));
+}
+
+.glow {
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  width: rem(280px);
+  height: rem(280px);
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.2), rgba(34, 211, 238, 0.06) 48%, transparent 72%);
+  filter: blur(rem(10px));
+}
+
+.visualHeader,
+.fileCard,
+.visualFooter {
+  position: relative;
+  z-index: 1;
+}
+
+.statusDot {
+  display: inline-block;
+  width: rem(7px);
+  height: rem(7px);
+  margin-right: rem(4px);
+  border-radius: 50%;
+  background: var(--mantine-color-teal-6);
+  vertical-align: middle;
+}
+
+.lockStage {
+  position: relative;
+  display: grid;
+  min-height: rem(275px);
+  place-items: center;
+}
+
+.orbit,
+.orbitInner {
+  position: absolute;
+  border: 1px solid light-dark(rgba(124, 58, 237, 0.16), rgba(196, 181, 253, 0.16));
+  border-radius: 50%;
+}
+
+.orbit {
+  width: rem(245px);
+  height: rem(245px);
+  box-shadow: 0 0 rem(50px) rgba(139, 92, 246, 0.08);
+}
+
+.orbitInner {
+  width: rem(175px);
+  height: rem(175px);
+  border-color: light-dark(rgba(6, 182, 212, 0.22), rgba(103, 232, 249, 0.2));
+}
+
+.lockIcon {
+  position: relative;
+  display: grid;
+  width: rem(112px);
+  height: rem(112px);
+  place-items: center;
+  border: 1px solid light-dark(rgba(124, 58, 237, 0.2), rgba(196, 181, 253, 0.25));
+  border-radius: rem(34px);
+  background: linear-gradient(145deg, light-dark(#fff, #29243e), light-dark(#f3efff, #202a3d));
+  color: light-dark(var(--mantine-color-violet-6), var(--mantine-color-violet-3));
+  box-shadow:
+    0 rem(22px) rem(50px) rgba(78, 55, 128, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.fileCard {
+  border-color: light-dark(rgba(124, 58, 237, 0.12), rgba(196, 181, 253, 0.13));
+  background: light-dark(rgba(255, 255, 255, 0.88), rgba(32, 30, 48, 0.9));
+  box-shadow: 0 rem(16px) rem(36px) rgba(30, 25, 55, 0.1);
+}
+
+.visualFooter {
+  justify-content: center;
+  margin-top: var(--mantine-spacing-md);
+  color: var(--mantine-color-dimmed);
+}
+
+.features {
+  margin-top: clamp(rem(75px), 10vw, rem(130px));
+}
+
+.sectionEyebrow {
+  color: var(--mantine-color-violet-6);
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 800;
+  letter-spacing: rem(1.3px);
+}
+
+.sectionTitle {
+  margin-top: rem(8px);
+  color: var(--mantine-color-text);
+  font-size: clamp(rem(22px), 3vw, rem(31px));
+  font-weight: 750;
+  letter-spacing: rem(-0.7px);
+}
+
+.sectionAside {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.featureCard {
+  border: 1px solid var(--mantine-color-default-border);
+  background: light-dark(rgba(255, 255, 255, 0.78), rgba(25, 24, 39, 0.76));
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.featureCard:hover {
+  transform: translateY(rem(-4px));
+  border-color: light-dark(var(--mantine-color-violet-3), var(--mantine-color-violet-8));
+  box-shadow: 0 rem(18px) rem(36px) rgba(61, 43, 105, 0.11);
+}
+
+@media (max-width: $mantine-breakpoint-md) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .visual {
+    width: min(100%, rem(560px));
+    min-height: rem(390px);
+    margin-inline: auto;
+  }
+}
+
+@media (max-width: $mantine-breakpoint-sm) {
+  .container {
+    padding-top: rem(38px);
+  }
+
+  .visual {
+    min-height: rem(370px);
+    padding: var(--mantine-spacing-md);
+  }
+
+  .lockStage {
+    min-height: rem(225px);
+  }
+}

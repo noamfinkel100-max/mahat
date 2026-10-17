@@ -40,6 +40,8 @@ Both launchers enable the `local` profile. Java reads the nearest `.env` file au
 
 When credentials are missing in the local profile, Java uses read-only Docker inspection to find exactly one MinIO/Silo container published on the configured loopback S3 port and reads its account settings. Container names such as `securedrop-minio` are supported. Credentials are used in memory and never printed or written to configuration files. Remote S3 endpoints are never inspected through Docker; packaged Java/Docker deployments default to the `production` profile and require configured credentials. `CYPHERNOD_PROFILE=production` explicitly disables local discovery.
 
+Local defaults use `127.0.0.1` to avoid Docker Desktop IPv4/IPv6 mismatches. In the local profile, plain `localhost` HTTP/MongoDB URLs also use IPv4; TLS endpoints, explicit IPv6 and remote hosts remain unchanged. Startup errors identify the failing service without printing credentials. The exact Maven command from the reported PowerShell run was tested against the same Silo image; see [startup verification](docs/STARTUP_VERIFICATION.md) for the command, checks and platform limits.
+
 ```sh
 cd FrontEnd
 npm ci

@@ -63,19 +63,18 @@ jobs:
           npm run build
       - name: Build backend and run unit tests
         working-directory: BackEnd
-        run: mvn --batch-mode --no-transfer-progress -Dtest='!SecurityIntegrationTest' verify
+        run: mvn --batch-mode --no-transfer-progress -Dtest='!SecurityIntegrationTest,!StartupIntegrationTest' verify
       - name: Start isolated MongoDB and real MinIO
         run: docker compose -f compose.test.yaml up --detach --wait --wait-timeout 120
       - name: Run MongoDB and MinIO integration tests
         working-directory: BackEnd
         env:
           RUN_INTEGRATION_TESTS: 'true'
-        run: mvn --batch-mode --no-transfer-progress -Dtest=SecurityIntegrationTest test
-      - name: Start backend for browser tests
+        run: mvn --batch-mode --no-transfer-progress -Dtest=SecurityIntegrationTest,StartupIntegrationTest test
+      - name: Start backend through the reported Maven command
         working-directory: BackEnd
         run: |
-          mvn --batch-mode --no-transfer-progress dependency:build-classpath -Dmdep.outputFile=target/classpath
-          nohup java -cp "target/classes:$(cat target/classpath)" org.mahat.Loader > backend.log 2>&1 &
+          nohup mvn --batch-mode --no-transfer-progress org.codehaus.mojo:exec-maven-plugin:3.6.3:java "-Dexec.mainClass=org.mahat.Loader" > backend.log 2>&1 &
           for attempt in {1..60}; do
             if curl --fail --silent http://127.0.0.1:12001/api/health; then
               exit 0

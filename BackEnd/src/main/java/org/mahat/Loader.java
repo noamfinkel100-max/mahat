@@ -12,7 +12,11 @@ public final class Loader {
             System.err.println("Cyphernod configuration could not be loaded. " + error.getMessage());
             System.exit(1); return;
         }
-        new Server().start(config).onSuccess(port -> System.out.println("Cyphernod API listening on port " + port))
-                .onFailure(error -> { System.err.println("Backend startup failed: check service configuration and connectivity."); System.exit(1); });
+        Server server = new Server();
+        server.start(config).onSuccess(port -> System.out.println("Cyphernod API listening on port " + port))
+                .onFailure(error -> {
+                    System.err.println("Backend startup failed: " + StartupFailure.describe(error));
+                    server.close().onComplete(ignored -> System.exit(1));
+                });
     }
 }

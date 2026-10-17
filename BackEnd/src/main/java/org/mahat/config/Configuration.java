@@ -5,6 +5,7 @@ import io.vertx.core.json.JsonObject;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -59,7 +60,12 @@ public final class Configuration {
             throw new IllegalArgumentException("CYPHERNOD_PROFILE must be local or production.");
         if (profile.equals("local")) {
             if (!config.containsKey("SESSION_SECURE")) config.put("SESSION_SECURE", false);
-            String endpoint = config.getString("S3_ENDPOINT", "http://localhost:9000");
+            // Docker Desktop can expose these ports only on IPv4 while localhost resolves to ::1.
+            if (!config.containsKey("MONGO_URL")) config.put("MONGO_URL", "mongodb://127.0.0.1:27017");
+            if (!config.containsKey("S3_ENDPOINT")) config.put("S3_ENDPOINT", "http://127.0.0.1:9000");
+            config.put("MONGO_URL", localIpv4(config.getString("MONGO_URL")));
+            config.put("S3_ENDPOINT", localIpv4(config.getString("S3_ENDPOINT")));
+            String endpoint = config.getString("S3_ENDPOINT");
             if (missing(config, "S3_ACCESS_KEY") || missing(config, "S3_SECRET_KEY")) {
                 Map<String, String> found = credentials.find(endpoint);
                 // Never combine explicitly configured credentials with a different Docker account.
@@ -88,6 +94,23 @@ public final class Configuration {
     private static boolean missing(JsonObject config, String name) {
         Object value = config.getValue(name);
         return !(value instanceof String text) || text.isBlank();
+    }
+
+    private static String localIpv4(String endpoint) {
+        try {
+            URI uri = URI.create(endpoint);
+            if (!"localhost".equalsIgnoreCase(uri.getHost())) return endpoint;
+            // Preserve TLS hostname verification, explicit IPv6, remote hosts and SRV discovery.
+            boolean plainHttp = "http".equalsIgnoreCase(uri.getScheme());
+            boolean plainMongo = "mongodb".equalsIgnoreCase(uri.getScheme())
+                    && (uri.getRawQuery() == null || !uri.getRawQuery().toLowerCase(java.util.Locale.ROOT).matches(".*(?:tls|ssl).*"));
+            if (!plainHttp && !plainMongo) return endpoint;
+            // Replace only the host in the original text; never decode or re-encode credentials/query values.
+            int start = endpoint.indexOf("://") + 3;
+            String authority = uri.getRawAuthority();
+            start += authority.lastIndexOf('@') + 1;
+            return endpoint.substring(0, start) + "127.0.0.1" + endpoint.substring(start + "localhost".length());
+        } catch (IllegalArgumentException error) { return endpoint; }
     }
 
     static Map<String, String> readDotenv(Path path) throws IOException {

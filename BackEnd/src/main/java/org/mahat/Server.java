@@ -15,17 +15,20 @@ public final class Server {
     private Api api;
 
     public Future<Integer> start(JsonObject configuration) {
-        api = new Api(vertx, configuration);
+        try { api = new Api(vertx, configuration); }
+        catch (RuntimeException error) { return Future.failedFuture(StartupFailure.at(StartupFailure.Stage.CONFIGURATION, error)); }
         return api.initialize().compose(ignored -> {
             httpServer = vertx.createHttpServer();
-            return httpServer.requestHandler(api.router()).listen(configuration.getInteger("PORT", 12000));
+            int port = configuration.getInteger("PORT", 12000);
+            return httpServer.requestHandler(api.router()).listen(port)
+                    .recover(error -> Future.failedFuture(StartupFailure.http(error, port)));
         }).map(server -> server.actualPort());
     }
 
     public void start(ConfigRetrieverOptions options) {
         ConfigRetriever.create(vertx, options).getConfig().compose(this::start)
                 .onSuccess(port -> System.out.println("Cyphernod API listening on port " + port))
-                .onFailure(error -> { System.err.println("Backend startup failed: check service configuration and connectivity."); close(); });
+                .onFailure(error -> { System.err.println("Backend startup failed: " + StartupFailure.describe(error)); close(); });
     }
 
     public Future<Void> close() {

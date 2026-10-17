@@ -91,7 +91,7 @@ Normal Docker builds use their standard certificate trust and need no extra flag
 
 Executed successfully in the cloud environment against actual MongoDB 7.0 and MinIO 2025-04-22:
 
-- Backend: 57 tests passed, 0 failures/errors/skips (19 startup/configuration, 10 encryption, 5 password, 23 HTTP/database/storage integration).
+- Backend: 68 tests passed, 0 failures/errors/skips (22 configuration/discovery, 4 startup diagnostics, 10 encryption, 5 password, 27 HTTP/database/storage/startup integration).
 - Frontend: 12 unit/component tests passed; TypeScript, Prettier, ESLint, stylelint and the production build passed.
 - Playwright: 8 Chromium scenarios passed against the isolated real backend. Registration/login, protected pages, upload validation/replacement/drag-drop, actual progress, correct downloaded bytes, limits, concurrent final allowance, expiration, policy edits/revocation, global deletion, duplicate filenames and mobile controls were exercised.
 - Both application Docker images built and all four development services became healthy. A separate Compose smoke test passed registration, session lookup, encrypted upload, exact-content download and deletion.
@@ -112,3 +112,5 @@ Screenshots captured from the validated application using isolated review fixtur
 Java now loads `.env` from the repository root or `BackEnd` itself, so Maven and VS Code use the same configuration. The Maven exec plugin and VS Code local launch select the local profile. Missing credentials are resolved from the existing MinIO/Silo container bound to the configured loopback port, without writing or logging them. Explicit settings retain precedence, and production/remote endpoints do not use Docker credential discovery.
 
 The exact `mvn compile exec:java` launch was executed with neither a `.env` file nor exported S3 credentials against isolated actual MongoDB and MinIO with non-default account settings. API health and account registration passed, and storage initialization authenticated successfully. The additional 19 tests cover settings precedence, Windows/literal dotenv values, redacted error messages, production isolation, matching ports/images, the existing Silo image name, unavailable Docker and ambiguous-container rejection.
+
+The follow-up startup suite also verified the exact fully qualified Maven exec command against the user's Silo image, including an IPv6-only localhost regression and real startup failure cases. See [STARTUP_VERIFICATION.md](STARTUP_VERIFICATION.md).

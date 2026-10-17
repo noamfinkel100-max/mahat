@@ -14,6 +14,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import org.mahat.handlers.Encryptor;
 import org.mahat.security.PasswordHasher;
+import org.mahat.StartupFailure;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -62,16 +63,24 @@ public final class Api {
     }
 
     public Future<Void> initialize() {
-        return worker(() -> { Files.createDirectories(uploads);
+        return this.<Void>worker(() -> { Files.createDirectories(uploads);
             try { Files.setPosixFilePermissions(uploads, PosixFilePermissions.fromString("rwx------")); }
             catch (UnsupportedOperationException ignored) { /* Windows uses its directory ACL. */ }
-            storage.initialize(); return null; })
-                .compose(v -> mongo.createIndexWithOptions(USERS, new JsonObject().put("canonicalName", 1), new IndexOptions(new JsonObject().put("unique", true))))
+            return null; })
+                .recover(error -> Future.failedFuture(StartupFailure.at(StartupFailure.Stage.UPLOAD_DIRECTORY, error)))
+                .compose(v -> this.<Void>worker(() -> { storage.initialize(); return null; })
+                        .recover(error -> Future.failedFuture(StartupFailure.at(StartupFailure.Stage.STORAGE, error))))
+                .compose(v -> initializeIndexes().recover(error -> Future.failedFuture(StartupFailure.at(StartupFailure.Stage.DATABASE, error))))
+                .map(v -> { routes(); retryTimer = vertx.setPeriodic(60_000, ignored -> retryDeletions()); retryDeletions(); return null; });
+    }
+
+    private Future<Void> initializeIndexes() {
+        return mongo.createIndexWithOptions(USERS, new JsonObject().put("canonicalName", 1), new IndexOptions(new JsonObject().put("unique", true)))
                 .compose(v -> mongo.createIndex(FILES, new JsonObject().put("ownerId", 1).put("status", 1)))
                 .compose(v -> mongo.createIndex(FILES, new JsonObject().put("shares.recipientId", 1).put("status", 1)))
                 .compose(v -> mongo.createIndex(FILES, new JsonObject().put("status", 1)))
                 .compose(v -> mongo.createIndexWithOptions(SESSIONS, new JsonObject().put("expiresAt", 1), new IndexOptions(new JsonObject().put("expireAfterSeconds", 0))))
-                .map(v -> { routes(); retryTimer = vertx.setPeriodic(60_000, ignored -> retryDeletions()); retryDeletions(); return null; });
+                .mapEmpty();
     }
     public Router router() { return router; }
     public void close() { if (retryTimer != 0) vertx.cancelTimer(retryTimer); mongo.close(); }

@@ -56,7 +56,7 @@ class ConfigurationTest {
 
     @Test void localLaunchUsesExistingDockerCredentialsWithoutWritingAFile() throws Exception {
         JsonObject config = Configuration.load(directory, Map.of("S3_ENDPOINT", "http://localhost:19000"), "local", endpoint -> {
-            assertEquals("http://localhost:19000", endpoint); return ACCOUNT;
+            assertEquals("http://127.0.0.1:19000", endpoint); return ACCOUNT;
         });
         assertEquals("test-user", config.getString("S3_ACCESS_KEY"));
         assertEquals("test-password", config.getString("S3_SECRET_KEY"));
@@ -85,6 +85,36 @@ class ConfigurationTest {
     @Test void matchingPartialCredentialsMayBeCompletedFromSameAccount() throws Exception {
         JsonObject config = Configuration.load(directory, Map.of("S3_ACCESS_KEY", "test-user"), "local", endpoint -> ACCOUNT);
         assertEquals("test-password", config.getString("S3_SECRET_KEY"));
+    }
+
+    @Test void localDockerDefaultsAndPlainLocalhostUseIpv4WithConfiguredPorts() throws Exception {
+        JsonObject defaults = Configuration.load(directory, ACCOUNT, "local", endpoint -> fail("Already configured"));
+        assertEquals("mongodb://127.0.0.1:27017", defaults.getString("MONGO_URL"));
+        assertEquals("http://127.0.0.1:9000", defaults.getString("S3_ENDPOINT"));
+        var custom = new java.util.HashMap<>(ACCOUNT);
+        custom.put("MONGO_URL", "mongodb://localhost:28017");
+        custom.put("S3_ENDPOINT", "http://localhost:19000");
+        JsonObject configured = Configuration.load(directory, custom, "local", endpoint -> fail("Already configured"));
+        assertEquals("mongodb://127.0.0.1:28017", configured.getString("MONGO_URL"));
+        assertEquals("http://127.0.0.1:19000", configured.getString("S3_ENDPOINT"));
+    }
+
+    @Test void localAddressNormalizationPreservesEncodedAccountAndQueryValues() throws Exception {
+        var custom = new java.util.HashMap<>(ACCOUNT);
+        custom.put("MONGO_URL", "mongodb://test:p%40ss%2Fword@localhost:28017/db?authSource=admin&appName=localhost");
+        JsonObject config = Configuration.load(directory, custom, "local", endpoint -> fail("Already configured"));
+        assertEquals("mongodb://test:p%40ss%2Fword@127.0.0.1:28017/db?authSource=admin&appName=localhost", config.getString("MONGO_URL"));
+    }
+
+    @Test void tlsRemoteAndExplicitIpv6EndpointsAreNeverRewritten() throws Exception {
+        for (String mongo : new String[]{"mongodb://localhost:27017/?tls=true", "mongodb://localhost:27017/?ssl=true",
+                "mongodb://database.example.com:27017", "mongodb://[::1]:27017"}) {
+            var custom = new java.util.HashMap<>(ACCOUNT);
+            custom.put("MONGO_URL", mongo); custom.put("S3_ENDPOINT", "https://localhost:9000");
+            JsonObject config = Configuration.load(directory, custom, "local", endpoint -> fail("Already configured"));
+            assertEquals(mongo, config.getString("MONGO_URL"));
+            assertEquals("https://localhost:9000", config.getString("S3_ENDPOINT"));
+        }
     }
 
     @Test void quotesCommentsBomAndWindowsPathsPreserveLiteralCredentials() throws Exception {

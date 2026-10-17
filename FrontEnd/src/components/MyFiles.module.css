@@ -65,6 +65,7 @@
 }
 
 .greeting {
+  overflow-wrap: anywhere;
   color: var(--mantine-color-text);
   font-size: clamp(rem(27px), 4vw, rem(38px));
   font-weight: 800;
@@ -111,6 +112,8 @@
 
 .search {
   width: rem(260px);
+  min-width: 0;
+  flex: 1;
 }
 
 .tabs :global(.mantine-Tabs-tab) {

@@ -1,15 +1,14 @@
 import { Button, Group } from '@mantine/core';
 import { IconArrowUpRight, IconFolder } from '@tabler/icons-react';
-import { useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { FilesContext } from '@/App';
+import { useSession } from '@/utils/session';
 
 const WelcomeButtons = () => {
-  const { filesState } = useContext(FilesContext);
+  const { user } = useSession();
 
   return (
     <Group gap="sm">
-      {filesState?.user ? (
+      {user ? (
         <Button
           component={Link}
           to="/myfiles"

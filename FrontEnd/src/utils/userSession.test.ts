@@ -2,43 +2,29 @@ import { describe, expect, it } from 'vitest';
 import { parseUserSession } from './userSession';
 
 describe('parseUserSession', () => {
-  it('parses the current API response shape', () => {
-    expect(
-      parseUserSession(
-        {
-          userId: 'user-1',
-          myFiles: { 'report.pdf': 'secret-code' },
-          sharedWithMe: ['notes.txt'],
-        },
-        'alice'
-      )
-    ).toEqual({
+  it('accepts a server-authenticated identity', () => {
+    expect(parseUserSession({ userId: 'user-1', name: 'alice' })).toEqual({
       userId: 'user-1',
-      user: 'alice',
-      myFiles: { 'report.pdf': 'secret-code' },
-      sharedWithMe: ['notes.txt'],
+      name: 'alice',
     });
   });
-
-  it('accepts file lists encoded as JSON strings', () => {
+  it('never copies encryption codes or file state into the session', () => {
     expect(
-      parseUserSession(
-        {
-          userId: 'user-2',
-          myFiles: '{"report.pdf":"secret-code"}',
-          sharedWithMe: '["notes.txt"]',
-        },
-        'bob'
-      )
-    ).toEqual({
-      userId: 'user-2',
-      user: 'bob',
-      myFiles: { 'report.pdf': 'secret-code' },
-      sharedWithMe: ['notes.txt'],
-    });
+      parseUserSession({
+        userId: 'user-1',
+        name: 'alice',
+        myFiles: { 'report.pdf': 'secret-code' },
+      })
+    ).toEqual({ userId: 'user-1', name: 'alice' });
   });
-
-  it('rejects a successful response that has no session identifier', () => {
-    expect(parseUserSession({ myFiles: {}, sharedWithMe: [] }, 'carol')).toBeNull();
+  it('rejects missing or malformed identity fields', () => {
+    for (const input of [
+      null,
+      {},
+      { userId: '1' },
+      { userId: 12, name: 'alice' },
+      { userId: '', name: 'alice' },
+    ])
+      expect(parseUserSession(input)).toBeNull();
   });
 });

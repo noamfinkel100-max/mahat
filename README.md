@@ -26,11 +26,19 @@ Use Node specified by `FrontEnd/.nvmrc` and Java 17 or later with Maven 3.9.x. T
 ### Run the backend in VS Code
 
 1. Open the whole `mahat` folder in VS Code, containing both `BackEnd` and `FrontEnd`. Install the **Extension Pack for Java** if VS Code prompts for Java support.
-2. Copy the root `.env.example` file to `.env`. The example contains local development credentials matching the Compose MinIO service; use your own credentials if connecting to a different MinIO instance. `.env` is ignored by Git.
-3. Start Docker Desktop, then open **Terminal → New Terminal** in VS Code and run `docker compose up -d --wait mongo minio` from the repository root.
-4. Open **Run and Debug**, select **Cyphernod backend (local)**, and press **F5**. The checked-in launch configuration loads the root `.env` file and uses an upload directory under the ignored backend `target` directory, including on Windows.
+2. Start your existing MongoDB and MinIO/Silo containers. If they are already running on ports 27017 and 9000, reuse them. The repository Compose services can also be started with `docker compose up -d --wait mongo minio` when those ports are free.
+3. Open **Run and Debug**, select **Cyphernod backend (local)**, and press **F5**. No `.env` file or manual credential export is required for an existing local MinIO container with its account configured in Docker environment settings. The launch uses an upload directory under the ignored backend `target` directory, including on Windows.
 
-Wait for `Cyphernod API listening on port 12000`. This VS Code launch configuration supplies the environment to Java; launching `mvn exec:java` separately does not automatically load `.env`.
+Wait for `Cyphernod API listening on port 12000`. Maven uses the same local startup configuration:
+
+```sh
+cd BackEnd
+mvn compile exec:java
+```
+
+Both launchers enable the `local` profile. Java reads the nearest `.env` file automatically (the current directory, or the repository root when launched from `BackEnd`). A `.env` file is optional for local discovery and is ignored by Git. Environment variables override the optional `CONFIG_PATH` JSON file, which overrides `.env` values. Existing configured credentials are preserved.
+
+When credentials are missing in the local profile, Java uses read-only Docker inspection to find exactly one MinIO/Silo container published on the configured loopback S3 port and reads its account settings. Container names such as `securedrop-minio` are supported. Credentials are used in memory and never printed or written to configuration files. Remote S3 endpoints are never inspected through Docker; packaged Java/Docker deployments default to the `production` profile and require configured credentials. `CYPHERNOD_PROFILE=production` explicitly disables local discovery.
 
 ```sh
 cd FrontEnd
@@ -46,7 +54,7 @@ mvn test dependency:build-classpath -Dmdep.outputFile=target/classpath.txt
 java -cp "target/classes:$(cat target/classpath.txt)" org.mahat.Loader
 ```
 
-The backend reads environment variables; `CONFIG_PATH` remains an optional configuration-file override for existing local setups, with environment variables taking precedence. Secrets are not printed. The frontend calls relative `/api` URLs; Vite proxies to `API_PROXY_TARGET`, defaulting to the local API port 12000. Preserve the original Host when proxying so same-origin checks work. Set `ALLOWED_ORIGIN` only for an explicitly trusted frontend origin when needed.
+The backend reads `.env` and environment variables; `CONFIG_PATH` remains an optional configuration-file override for existing local setups, with environment variables taking precedence. Secrets are not printed. The frontend calls relative `/api` URLs; Vite proxies to `API_PROXY_TARGET`, defaulting to the local API port 12000. Preserve the original Host when proxying so same-origin checks work. Set `ALLOWED_ORIGIN` only for an explicitly trusted frontend origin when needed.
 
 ## Automated checks
 

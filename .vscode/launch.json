@@ -7,8 +7,8 @@
             "request": "launch",
             "mainClass": "org.mahat.Loader",
             "cwd": "${workspaceFolder}/BackEnd",
-            "envFile": "${workspaceFolder}/.env",
             "env": {
+                "CYPHERNOD_PROFILE": "local",
                 "UPLOAD_DIR": "${workspaceFolder}/BackEnd/target/uploads"
             },
             "console": "integratedTerminal"

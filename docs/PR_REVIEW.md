@@ -22,7 +22,7 @@ A recipient download is consumed after successful ciphertext authentication, whe
 
 ## Executed validation
 
-- Backend: 38 passed, zero failures/errors/skips — 10 encryption, 5 password, 23 real HTTP/MongoDB/MinIO integration tests.
+- Backend: 57 passed, zero failures/errors/skips — 19 startup/configuration, 10 encryption, 5 password, 23 real HTTP/MongoDB/MinIO integration tests.
 - Frontend: 12 unit/component tests passed; TypeScript, Prettier, ESLint, stylelint and production build passed.
 - Playwright: 8 Chromium scenarios passed against isolated actual MongoDB and MinIO, without mocked API responses. Includes real downloaded byte comparison, independent quotas, concurrent final allowance, deterministic expiration, custom policy editing/revocation, all-recipient deletion, actual object absence, duplicate filenames and mobile interactions.
 - Full Docker app images built; all four development services healthy. Authentication, encrypted upload, exact-content download and global deletion passed a separate Compose smoke test.
@@ -51,3 +51,7 @@ The production build has a non-failing JavaScript chunk-size warning (about 537 
 
 ![Mobile sharing](https://github.com/noamfinkel100-max/mahat/blob/3c8e66ca8bcc66c8acc8f5a532703a48a003c4a5/docs/screenshots/mobile-sharing.png?raw=true)
 
+
+## Startup regression fix
+
+Local Maven and VS Code runs now load optional `.env` files automatically and reuse credentials from the MinIO/Silo container already published on the configured local S3 port. This fixes the `Missing S3_ACCESS_KEY` startup path without committing credentials, requiring an `.env` file, or replacing configured accounts. Production defaults remain explicit and fail closed. The exact Maven command passed with no credential environment variables against real isolated services; all 57 backend tests pass.

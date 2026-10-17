@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Cyphernod backend (local)",
+            "request": "launch",
+            "mainClass": "org.mahat.Loader",
+            "cwd": "${workspaceFolder}/BackEnd",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "UPLOAD_DIR": "${workspaceFolder}/BackEnd/target/uploads"
+            },
+            "console": "integratedTerminal"
+        }
+    ]
+}

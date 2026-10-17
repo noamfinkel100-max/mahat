@@ -23,6 +23,15 @@ Create an account with a password of at least 12 characters. Upload a file with 
 
 Use Node specified by `FrontEnd/.nvmrc` and Java 17 or later with Maven 3.9.x. The npm lockfile is authoritative; Yarn is not required.
 
+### Run the backend in VS Code
+
+1. Open the whole `mahat` folder in VS Code, containing both `BackEnd` and `FrontEnd`. Install the **Extension Pack for Java** if VS Code prompts for Java support.
+2. Copy the root `.env.example` file to `.env`. The example contains local development credentials matching the Compose MinIO service; use your own credentials if connecting to a different MinIO instance. `.env` is ignored by Git.
+3. Start Docker Desktop, then open **Terminal → New Terminal** in VS Code and run `docker compose up -d --wait mongo minio` from the repository root.
+4. Open **Run and Debug**, select **Cyphernod backend (local)**, and press **F5**. The checked-in launch configuration loads the root `.env` file and uses an upload directory under the ignored backend `target` directory, including on Windows.
+
+Wait for `Cyphernod API listening on port 12000`. This VS Code launch configuration supplies the environment to Java; launching `mvn exec:java` separately does not automatically load `.env`.
+
 ```sh
 cd FrontEnd
 npm ci

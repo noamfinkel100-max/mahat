@@ -1,0 +1,45 @@
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.dropzone {
+  display: flex;
+  width: 100%;
+  min-height: rem(185px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mantine-spacing-lg);
+  border: 2px dashed light-dark(var(--mantine-color-violet-2), var(--mantine-color-violet-8));
+  border-radius: var(--mantine-radius-lg);
+  background: light-dark(var(--mantine-color-violet-0), rgba(139, 92, 246, 0.07));
+  color: var(--mantine-color-text);
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.dropzone:hover,
+.dropzone[data-dragging='true'] {
+  border-color: var(--mantine-color-violet-5);
+  background: light-dark(var(--mantine-color-violet-1), rgba(139, 92, 246, 0.15));
+}
+
+.dropzone:focus-visible {
+  outline: 3px solid var(--mantine-color-violet-5);
+  outline-offset: 3px;
+}
+
+.dropzone:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropzone {
+    transition: none;
+  }
+}

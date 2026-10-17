@@ -1,12 +1,15 @@
-import { FilesContext } from '@/App';
+import { useState } from 'react';
 import {
   ActionIcon,
+  Alert,
   Badge,
   Box,
   Button,
   Card,
   Container,
   Group,
+  Loader,
+  Modal,
   Paper,
   SimpleGrid,
   Stack,
@@ -18,139 +21,215 @@ import {
   Tooltip,
 } from '@mantine/core';
 import {
-  IconCheck,
   IconDownload,
   IconFile,
   IconInbox,
   IconLock,
+  IconRefresh,
   IconSearch,
   IconShare,
   IconShieldCheck,
   IconTrash,
   IconUpload,
-  IconUsers,
-  IconX,
 } from '@tabler/icons-react';
-import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
-import { useContext, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import {
+  api,
+  errorMessage,
+  expirationLabel,
+  FileList,
+  formatSize,
+  shareState,
+  StoredFile,
+} from '@/utils/api';
+import { useSession } from '@/utils/session';
 import { DownloadFileModal } from './DownloadFileModal';
 import { ShareFileModal } from './ShareFileModal';
 import { UploadFileModal } from './UploadFileModal';
 import classes from './MyFiles.module.css';
 
-type Notice = {
-  message: string;
-  type: 'success' | 'error';
-};
-
-const MyFiles = () => {
-  const { filesState, setFilesState } = useContext(FilesContext);
-  const [isShareFileOpen, setIsShareFileOpen] = useState(false);
-  const [isUploadFileOpen, setIsUploadFileOpen] = useState(false);
-  const [isDownloadFileOpen, setIsDownloadFileOpen] = useState(false);
-  const [selectedFileToShare, setSelectedFileToShare] = useState('');
-  const [selectedFileToDownload, setSelectedFileToDownload] = useState('');
+export function MyFiles() {
+  const { user } = useSession();
+  const queryClient = useQueryClient();
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [shareFile, setShareFile] = useState<StoredFile | null>(null);
+  const [downloadFile, setDownloadFile] = useState<StoredFile | null>(null);
+  const [deleteFile, setDeleteFile] = useState<StoredFile | null>(null);
   const [search, setSearch] = useState('');
-  const [notification, setNotification] = useState<Notice>();
-
-  const myFiles = Object.entries(filesState?.myFiles ?? {});
-  const sharedFiles = filesState?.sharedWithMe ?? [];
-  const matchingMyFiles = useMemo(
-    () => myFiles.filter(([name]) => name.toLowerCase().includes(search.trim().toLowerCase())),
-    [filesState?.myFiles, search]
-  );
-  const matchingSharedFiles = useMemo(
-    () => sharedFiles.filter((name) => name.toLowerCase().includes(search.trim().toLowerCase())),
-    [filesState?.sharedWithMe, search]
-  );
-
-  const deleteFileRequest = useMutation({
-    mutationFn: (fileName: string) =>
-      axios.post('http://localhost:12000/delete', {
-        _id: filesState?.userId,
-        fileName,
-      }),
-    onSuccess: (_response, fileName) => {
-      setFilesState((current) =>
-        current
-          ? {
-              ...current,
-              myFiles: Object.fromEntries(
-                Object.entries(current.myFiles).filter(([name]) => name !== fileName)
-              ),
-            }
-          : current
-      );
-      setNotification({ message: 'File removed from your vault.', type: 'success' });
+  const [notice, setNotice] = useState('');
+  const files = useQuery({
+    queryKey: ['files'],
+    queryFn: async () => (await api.get<FileList>('/files')).data,
+    refetchInterval: 5000,
+  });
+  const remove = useMutation({
+    mutationFn: (file: StoredFile) => api.delete(`/files/${file.fileId}`),
+    onSuccess: async () => {
+      setDeleteFile(null);
+      setNotice('File deleted. Access has been removed for every recipient.');
+      await queryClient.invalidateQueries({ queryKey: ['files'] });
+      queryClient.removeQueries({ queryKey: ['shares', deleteFile?.fileId] });
     },
-    onError: () => {
-      setNotification({ message: 'Could not delete the file. Please try again.', type: 'error' });
+    onError: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['files'] });
     },
   });
-
-  if (!filesState) {
+  if ((files.error as { response?: { status?: number } })?.response?.status === 401)
     return <Navigate to="/login" replace />;
-  }
-
-  const openShare = (fileName: string) => {
-    setSelectedFileToShare(fileName);
-    setIsShareFileOpen(true);
-  };
-
-  const openDownload = (fileName: string) => {
-    setSelectedFileToDownload(fileName);
-    setIsDownloadFileOpen(true);
-  };
-
-  const emptyState = (title: string, message: string, icon: ReactNode) => (
+  const owned = files.data?.owned ?? [];
+  const shared = files.data?.shared ?? [];
+  const matches = (file: StoredFile) =>
+    file.originalFileName.toLowerCase().includes(search.trim().toLowerCase());
+  const empty = (isOwned: boolean) => (
     <Paper className={classes.emptyState} radius="lg" p="xl" withBorder>
-      <ThemeIcon size={54} radius="xl" variant="light" color="violet">
-        {icon}
+      <ThemeIcon size={54} radius="xl" variant="light">
+        {isOwned ? <IconLock size={25} /> : <IconInbox size={25} />}
       </ThemeIcon>
       <Text fw={700} mt="md">
-        {title}
+        {search
+          ? 'No matching files'
+          : isOwned
+            ? 'Your vault starts here'
+            : 'Nothing shared with you yet'}
       </Text>
       <Text c="dimmed" size="sm" mt={5}>
-        {message}
+        {search
+          ? 'Try a different filename.'
+          : isOwned
+            ? 'Upload your first file and keep access on your terms.'
+            : 'Files shared with your account will appear here.'}
       </Text>
+      {isOwned && !search && (
+        <Button mt="md" variant="light" onClick={() => setUploadOpen(true)}>
+          Upload your first file
+        </Button>
+      )}
     </Paper>
   );
+  const cards = (items: StoredFile[], isOwned: boolean) =>
+    items.filter(matches).length ? (
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+        {items.filter(matches).map((file) => {
+          const state = file.share ? shareState(file.share) : 'Active';
+          const available = file.status === 'ACTIVE' && (isOwned || state === 'Active');
+          return (
+            <Card
+              key={file.fileId}
+              data-testid="file-card"
+              data-file-id={file.fileId}
+              className={classes.fileCard}
+              withBorder
+              radius="lg"
+              p="lg"
+            >
+              <Group justify="space-between" mb="md">
+                <ThemeIcon className={classes.fileIcon} size={44} radius="md">
+                  <IconFile size={24} />
+                </ThemeIcon>
+                <Badge variant="light" size="sm" color={available ? 'teal' : 'orange'}>
+                  {file.status !== 'ACTIVE'
+                    ? 'Deletion in progress'
+                    : isOwned
+                      ? 'Encrypted'
+                      : state}
+                </Badge>
+              </Group>
+              <Text className={classes.fileName} fw={700} title={file.originalFileName}>
+                {file.originalFileName}
+              </Text>
+              <Text c="dimmed" size="xs" mt={5}>
+                {formatSize(file.fileSize)} · {new Date(file.createdAt).toLocaleDateString()}
+              </Text>
+              {!isOwned && file.share && (
+                <Box mt="md">
+                  <Text size="sm" fw={600}>
+                    {file.share.maxDownloads === null
+                      ? 'Unlimited downloads'
+                      : `${Math.max(0, file.share.maxDownloads - file.share.downloadCount)} downloads remaining`}
+                  </Text>
+                  <Text c="dimmed" size="xs" mt={4}>
+                    {expirationLabel(file.share.expiresAt)}
+                  </Text>
+                </Box>
+              )}
+              <Group
+                gap="xs"
+                mt="lg"
+                style={{ marginTop: 'auto', paddingTop: 'var(--mantine-spacing-lg)' }}
+              >
+                <Button
+                  variant="light"
+                  size="xs"
+                  leftSection={<IconDownload size={15} />}
+                  aria-label={`Download ${file.originalFileName}`}
+                  disabled={!available}
+                  onClick={() => setDownloadFile(file)}
+                  style={{ flex: 1 }}
+                >
+                  Download
+                </Button>
+                {isOwned && (
+                  <>
+                    <Button
+                      variant="subtle"
+                      size="xs"
+                      leftSection={<IconShare size={15} />}
+                      aria-label={`Share ${file.originalFileName}`}
+                      disabled={!available}
+                      onClick={() => setShareFile(file)}
+                    >
+                      Share
+                    </Button>
+                    {file.status === 'DELETING' ? (
+                      <Button
+                        size="xs"
+                        color="orange"
+                        variant="light"
+                        leftSection={<IconRefresh size={15} />}
+                        aria-label={`Retry deletion ${file.originalFileName}`}
+                        onClick={() => {
+                          setDeleteFile(file);
+                          remove.reset();
+                        }}
+                      >
+                        Retry deletion
+                      </Button>
+                    ) : (
+                      <Tooltip label="Delete for everyone">
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          aria-label={`Delete ${file.originalFileName}`}
+                          onClick={() => {
+                            setDeleteFile(file);
+                            remove.reset();
+                          }}
+                        >
+                          <IconTrash size={17} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </>
+                )}
+              </Group>
+            </Card>
+          );
+        })}
+      </SimpleGrid>
+    ) : (
+      empty(isOwned)
+    );
 
   return (
     <Box className={classes.page}>
       <Container size="xl" className={classes.container}>
-        {notification && (
-          <div className={classes.notification}>
-            <Paper
-              className={classes.notice}
-              p="sm"
-              radius="md"
-              withBorder
-              data-type={notification.type}
-            >
-              <Group gap="xs">
-                {notification.type === 'success' ? <IconCheck size={18} /> : <IconX size={18} />}
-                <Text size="sm" fw={600}>
-                  {notification.message}
-                </Text>
-                <ActionIcon
-                  variant="subtle"
-                  color="gray"
-                  size="sm"
-                  aria-label="Dismiss notification"
-                  onClick={() => setNotification(undefined)}
-                >
-                  <IconX size={15} />
-                </ActionIcon>
-              </Group>
-            </Paper>
-          </div>
+        {notice && (
+          <Alert color="teal" mb="lg" withCloseButton onClose={() => setNotice('')} role="status">
+            {notice}
+          </Alert>
         )}
-
-        <Paper className={classes.welcomeCard} radius="xl" p="xl">
+        <Paper className={classes.welcomeCard} radius="xl" p={{ base: 'lg', sm: 'xl' }}>
           <div className={classes.welcomeGlow} />
           <Group className={classes.welcomeContent} justify="space-between" align="center" gap="xl">
             <Stack gap="sm">
@@ -164,237 +243,177 @@ const MyFiles = () => {
                 YOUR PRIVATE SPACE
               </Badge>
               <Title order={1} className={classes.greeting}>
-                Your vault, <span>{filesState.user}</span>.
+                Your vault, <span>{user?.name}</span>.
               </Title>
               <Text className={classes.welcomeText}>
-                Your files stay encrypted. You decide who gets access.
+                Encrypted files. Thoughtful sharing. Complete control.
               </Text>
             </Stack>
             <Button
               size="md"
               radius="xl"
               leftSection={<IconUpload size={18} />}
-              onClick={() => setIsUploadFileOpen(true)}
+              onClick={() => setUploadOpen(true)}
             >
               Upload a file
             </Button>
           </Group>
         </Paper>
-
         <SimpleGrid className={classes.stats} cols={{ base: 1, xs: 2 }} spacing="md">
-          <Paper className={classes.statCard} radius="lg" p="md" withBorder>
-            <Group wrap="nowrap">
-              <ThemeIcon size={44} radius="md" variant="light" color="violet">
-                <IconLock size={21} />
-              </ThemeIcon>
-              <Stack gap={0}>
-                <Text className={classes.statValue}>{myFiles.length}</Text>
-                <Text size="sm" c="dimmed">
-                  Files in your vault
-                </Text>
-              </Stack>
-            </Group>
-          </Paper>
-          <Paper className={classes.statCard} radius="lg" p="md" withBorder>
-            <Group wrap="nowrap">
-              <ThemeIcon size={44} radius="md" variant="light" color="cyan">
-                <IconInbox size={21} />
-              </ThemeIcon>
-              <Stack gap={0}>
-                <Text className={classes.statValue}>{sharedFiles.length}</Text>
-                <Text size="sm" c="dimmed">
-                  Shared with you
-                </Text>
-              </Stack>
-            </Group>
-          </Paper>
+          {[
+            { count: owned.length, label: 'Files in your vault', icon: <IconLock size={21} /> },
+            { count: shared.length, label: 'Shared with you', icon: <IconInbox size={21} /> },
+          ].map((stat) => (
+            <Paper key={stat.label} className={classes.statCard} radius="lg" p="md" withBorder>
+              <Group wrap="nowrap">
+                <ThemeIcon size={42} radius="md" variant="light">
+                  {stat.icon}
+                </ThemeIcon>
+                <Stack gap={0}>
+                  <Text className={classes.statValue}>{stat.count}</Text>
+                  <Text size="sm" c="dimmed">
+                    {stat.label}
+                  </Text>
+                </Stack>
+              </Group>
+            </Paper>
+          ))}
         </SimpleGrid>
-
         <Paper className={classes.library} radius="xl" p="lg" withBorder>
-          <Group className={classes.libraryHeader} justify="space-between" align="center" mb="lg">
+          <Group className={classes.libraryHeader} justify="space-between" mb="lg">
             <Box>
               <Title order={2} className={classes.libraryTitle}>
                 Your library
               </Title>
               <Text size="sm" c="dimmed" mt={4}>
-                Manage your files and the files shared with you.
+                Access updates automatically every few seconds.
               </Text>
             </Box>
-            <TextInput
-              className={classes.search}
-              leftSection={<IconSearch size={17} />}
-              placeholder="Find a file"
-              value={search}
-              onChange={(event) => setSearch(event.currentTarget.value)}
-              aria-label="Search files"
-            />
+            <Group gap="xs" wrap="nowrap">
+              <TextInput
+                className={classes.search}
+                leftSection={<IconSearch size={17} />}
+                placeholder="Find a file"
+                value={search}
+                onChange={(event) => setSearch(event.currentTarget.value)}
+                aria-label="Search files"
+              />
+              <ActionIcon
+                size="lg"
+                variant="default"
+                aria-label="Refresh files"
+                loading={files.isFetching}
+                onClick={() => {
+                  void files.refetch();
+                }}
+              >
+                <IconRefresh size={18} />
+              </ActionIcon>
+            </Group>
           </Group>
-
-          <Tabs defaultValue="mine" className={classes.tabs} color="violet">
+          {files.isError && (
+            <Alert color="red" mb="md" role="alert">
+              {errorMessage(files.error)}
+              <Button
+                variant="subtle"
+                color="red"
+                onClick={() => {
+                  void files.refetch();
+                }}
+                size="xs"
+              >
+                Retry
+              </Button>
+            </Alert>
+          )}
+          <Tabs defaultValue="mine" className={classes.tabs}>
             <Tabs.List>
               <Tabs.Tab value="mine" leftSection={<IconLock size={16} />}>
-                My files <span className={classes.tabCount}>{myFiles.length}</span>
+                My Files <span className={classes.tabCount}>{owned.length}</span>
               </Tabs.Tab>
               <Tabs.Tab value="shared" leftSection={<IconInbox size={16} />}>
-                Shared with me <span className={classes.tabCount}>{sharedFiles.length}</span>
+                Shared With Me <span className={classes.tabCount}>{shared.length}</span>
               </Tabs.Tab>
             </Tabs.List>
-
             <Tabs.Panel value="mine" pt="lg">
-              {matchingMyFiles.length === 0 ? (
-                emptyState(
-                  search ? 'No matching files' : 'Your vault is ready',
-                  search
-                    ? 'Try a different search term.'
-                    : 'Upload a file to encrypt it and keep it close at hand.',
-                  <IconLock size={25} />
-                )
+              {files.isPending ? (
+                <Group justify="center" py="xl">
+                  <Loader aria-label="Loading files" />
+                </Group>
               ) : (
-                <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-                  {matchingMyFiles.map(([fileName]) => (
-                    <Card key={fileName} className={classes.fileCard} radius="lg" p="md" withBorder>
-                      <Group justify="space-between" align="flex-start" wrap="nowrap">
-                        <ThemeIcon
-                          className={classes.fileIcon}
-                          size={46}
-                          radius="md"
-                          variant="light"
-                        >
-                          <IconFile size={23} />
-                        </ThemeIcon>
-                        <Badge
-                          className={classes.encryptedBadge}
-                          variant="light"
-                          color="teal"
-                          leftSection={<IconLock size={12} />}
-                        >
-                          Encrypted
-                        </Badge>
-                      </Group>
-                      <Text
-                        className={classes.fileName}
-                        fw={700}
-                        mt="md"
-                        lineClamp={2}
-                        title={fileName}
-                      >
-                        {fileName}
-                      </Text>
-                      <Text c="dimmed" size="xs" mt={4}>
-                        Stored privately in your vault
-                      </Text>
-                      <Group className={classes.fileActions} gap="xs" mt="lg">
-                        <Button
-                          className={classes.shareButton}
-                          variant="light"
-                          color="violet"
-                          leftSection={<IconShare size={16} />}
-                          onClick={() => openShare(fileName)}
-                        >
-                          Share
-                        </Button>
-                        <Tooltip label="Delete file">
-                          <ActionIcon
-                            variant="light"
-                            color="red"
-                            size={36}
-                            radius="md"
-                            aria-label={`Delete ${fileName}`}
-                            loading={deleteFileRequest.isPending}
-                            onClick={() => deleteFileRequest.mutate(fileName)}
-                          >
-                            <IconTrash size={17} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Group>
-                    </Card>
-                  ))}
-                </SimpleGrid>
+                cards(owned, true)
               )}
             </Tabs.Panel>
-
             <Tabs.Panel value="shared" pt="lg">
-              {matchingSharedFiles.length === 0 ? (
-                emptyState(
-                  search ? 'No matching files' : 'Nothing shared with you yet',
-                  search
-                    ? 'Try a different search term.'
-                    : 'When someone shares a file with you, it will appear here.',
-                  <IconInbox size={25} />
-                )
+              {files.isPending ? (
+                <Loader aria-label="Loading shared files" />
               ) : (
-                <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-                  {matchingSharedFiles.map((fileName, index) => (
-                    <Card
-                      key={`${fileName}-${index}`}
-                      className={classes.fileCard}
-                      radius="lg"
-                      p="md"
-                      withBorder
-                    >
-                      <Group justify="space-between" align="flex-start" wrap="nowrap">
-                        <ThemeIcon
-                          className={classes.fileIcon}
-                          size={46}
-                          radius="md"
-                          variant="light"
-                          color="cyan"
-                        >
-                          <IconFile size={23} />
-                        </ThemeIcon>
-                        <Badge variant="light" color="cyan" leftSection={<IconUsers size={12} />}>
-                          Shared
-                        </Badge>
-                      </Group>
-                      <Text
-                        className={classes.fileName}
-                        fw={700}
-                        mt="md"
-                        lineClamp={2}
-                        title={fileName}
-                      >
-                        {fileName}
-                      </Text>
-                      <Text c="dimmed" size="xs" mt={4}>
-                        Enter the decryption code to open this file.
-                      </Text>
-                      <Button
-                        className={classes.downloadButton}
-                        variant="light"
-                        color="cyan"
-                        leftSection={<IconDownload size={17} />}
-                        onClick={() => openDownload(fileName)}
-                        mt="lg"
-                        fullWidth
-                      >
-                        Download securely
-                      </Button>
-                    </Card>
-                  ))}
-                </SimpleGrid>
+                cards(shared, false)
               )}
             </Tabs.Panel>
           </Tabs>
         </Paper>
-
-        <UploadFileModal
-          opened={isUploadFileOpen}
-          userId={filesState.userId}
-          close={() => setIsUploadFileOpen(false)}
-        />
-        <DownloadFileModal
-          fileName={selectedFileToDownload}
-          opened={isDownloadFileOpen}
-          close={() => setIsDownloadFileOpen(false)}
-        />
-        <ShareFileModal
-          fileName={selectedFileToShare}
-          opened={isShareFileOpen}
-          close={() => setIsShareFileOpen(false)}
-        />
+        <UploadFileModal opened={uploadOpen} close={() => setUploadOpen(false)} />
+        {shareFile && (
+          <ShareFileModal
+            key={shareFile.fileId}
+            file={shareFile}
+            close={() => setShareFile(null)}
+          />
+        )}
+        {downloadFile && (
+          <DownloadFileModal
+            key={downloadFile.fileId}
+            file={downloadFile}
+            close={() => setDownloadFile(null)}
+          />
+        )}
+        <Modal
+          closeButtonProps={{ 'aria-label': 'Close dialog' }}
+          opened={Boolean(deleteFile)}
+          onClose={() => {
+            if (!remove.isPending) setDeleteFile(null);
+          }}
+          title="Delete file everywhere?"
+          centered
+          closeOnClickOutside={!remove.isPending}
+          closeOnEscape={!remove.isPending}
+          withCloseButton={!remove.isPending}
+        >
+          <Stack>
+            <Text size="sm">
+              <Text component="span" fw={700}>
+                {deleteFile?.originalFileName}
+              </Text>{' '}
+              will be permanently deleted from your vault and become unavailable to everyone it was
+              shared with. This cannot be undone.
+            </Text>
+            {remove.isError && (
+              <Alert color="red" role="alert">
+                {errorMessage(remove.error)} Access is blocked once deletion begins. You can retry
+                cleanup safely.
+              </Alert>
+            )}
+            <Group justify="flex-end">
+              <Button
+                variant="default"
+                disabled={remove.isPending}
+                onClick={() => setDeleteFile(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                color="red"
+                loading={remove.isPending}
+                leftSection={<IconTrash size={16} />}
+                onClick={() => deleteFile && remove.mutate(deleteFile)}
+              >
+                Delete file
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
       </Container>
     </Box>
   );
-};
-
-export { MyFiles };
+}

@@ -1,0 +1,111 @@
+name: Validate Cyphernod
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, 'feat/**', 'feature/**', 'codex/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cyphernod-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # These are public, disposable test credentials, never deployment secrets.
+    env:
+      PORT: '12001'
+      MONGO_URL: mongodb://127.0.0.1:27018
+      MONGO_DB_NAME: cyphernod_e2e
+      S3_ENDPOINT: http://127.0.0.1:19000
+      S3_ACCESS_KEY: cyphernod-test
+      S3_SECRET_KEY: cyphernod-test-only-password
+      S3_BUCKET: cyphernod-e2e
+      SESSION_SECURE: 'false'
+      ALLOWED_ORIGIN: http://127.0.0.1:5174
+      UPLOAD_DIR: /tmp/cyphernod-e2e-uploads
+      API_PROXY_TARGET: http://127.0.0.1:12001
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:5174
+      TEST_MONGO_URI: mongodb://127.0.0.1:27018
+      TEST_MONGO_URL: mongodb://127.0.0.1:27018
+      TEST_MONGO_DATABASE: cyphernod_e2e
+      TEST_S3_ENDPOINT: http://127.0.0.1:19000
+      TEST_S3_ACCESS_KEY: cyphernod-test
+      TEST_S3_SECRET_KEY: cyphernod-test-only-password
+      TEST_S3_BUCKET: cyphernod-e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: FrontEnd/.nvmrc
+          cache: npm
+          cache-dependency-path: FrontEnd/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Install frontend dependencies
+        working-directory: FrontEnd
+        run: npm ci --no-audit --no-fund
+      - name: Type check, lint, test, and build frontend
+        working-directory: FrontEnd
+        run: |
+          npm run typecheck
+          npm run lint
+          npm run vitest -- --maxWorkers=2 --minWorkers=1
+          npm run build
+      - name: Build backend and run unit tests
+        working-directory: BackEnd
+        run: mvn --batch-mode --no-transfer-progress -Dtest='!SecurityIntegrationTest' verify
+      - name: Start isolated MongoDB and real MinIO
+        run: docker compose -f compose.test.yaml up --detach --wait --wait-timeout 120
+      - name: Run MongoDB and MinIO integration tests
+        working-directory: BackEnd
+        env:
+          RUN_INTEGRATION_TESTS: 'true'
+        run: mvn --batch-mode --no-transfer-progress -Dtest=SecurityIntegrationTest test
+      - name: Start backend for browser tests
+        working-directory: BackEnd
+        run: |
+          mvn --batch-mode --no-transfer-progress dependency:build-classpath -Dmdep.outputFile=target/classpath
+          nohup java -cp "target/classes:$(cat target/classpath)" org.mahat.Loader > backend.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:12001/api/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat backend.log
+          exit 1
+      - name: Install Chromium and system dependencies
+        working-directory: FrontEnd
+        run: npx playwright install --with-deps chromium
+      - name: Run real browser end-to-end tests
+        working-directory: FrontEnd
+        run: npm run test:e2e
+      - name: Capture service diagnostics
+        if: always()
+        run: docker compose -f compose.test.yaml logs --no-color > service-diagnostics.log
+      - name: Upload test reports and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyphernod-test-reports
+          path: |
+            FrontEnd/playwright-report/
+            FrontEnd/test-results/
+            BackEnd/target/surefire-reports/
+            BackEnd/backend.log
+            service-diagnostics.log
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Remove disposable test services
+        if: always()
+        run: docker compose -f compose.test.yaml down --volumes

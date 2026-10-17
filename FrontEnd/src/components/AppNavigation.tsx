@@ -1,4 +1,7 @@
-import { useContext, useState } from 'react';
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/utils/api';
+import { useSession } from '@/utils/session';
 import { Anchor, Box, Burger, Button, Container, Drawer, Group, Text } from '@mantine/core';
 import {
   IconFolder,
@@ -8,22 +11,30 @@ import {
   IconUserPlus,
 } from '@tabler/icons-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { FilesContext } from '@/App';
 import { ColorSchemeToggle } from './ColorSchemeToggle/ColorSchemeToggle';
 import classes from './AppNavigation.module.css';
 
 export function AppNavigation() {
-  const { filesState, setFilesState } = useContext(FilesContext);
+  const { user } = useSession();
+  const queryClient = useQueryClient();
+  const logoutRequest = useMutation({
+    mutationFn: () => api.post('/auth/logout'),
+    onSuccess: async () => {
+      await queryClient.cancelQueries({ queryKey: ['session'] });
+      queryClient.removeQueries({
+        predicate: (query) => ['files', 'shares', 'users'].includes(String(query.queryKey[0])),
+      });
+      queryClient.setQueryData(['session'], null);
+      closeDrawer();
+      navigate('/');
+    },
+  });
   const [drawerOpened, setDrawerOpened] = useState(false);
   const navigate = useNavigate();
-  const isLoggedIn = Boolean(filesState?.user);
+  const isLoggedIn = Boolean(user);
 
   const closeDrawer = () => setDrawerOpened(false);
-  const logout = () => {
-    setFilesState(undefined);
-    closeDrawer();
-    navigate('/');
-  };
+  const logout = () => logoutRequest.mutate();
 
   const links = [
     { to: '/', label: 'Home', icon: <IconHome size={18} />, end: true },
@@ -67,16 +78,28 @@ export function AppNavigation() {
         <Group gap="sm">
           <ColorSchemeToggle />
           <Group gap="xs" visibleFrom="sm">
+            {logoutRequest.isError && (
+              <Text c="red" size="xs" role="alert">
+                Logout failed. Try again.
+              </Text>
+            )}
             {isLoggedIn ? (
               <>
-                <Text size="sm" c="dimmed">
-                  {filesState?.user}
+                <Text
+                  size="sm"
+                  c="dimmed"
+                  truncate="end"
+                  maw={{ sm: 80, md: 140 }}
+                  title={user?.name}
+                >
+                  {user?.name}
                 </Text>
                 <Button
                   variant="subtle"
                   color="gray"
                   leftSection={<IconLogout size={17} />}
                   onClick={logout}
+                  loading={logoutRequest.isPending}
                 >
                   Log out
                 </Button>
@@ -108,6 +131,7 @@ export function AppNavigation() {
       </Container>
 
       <Drawer
+        closeButtonProps={{ 'aria-label': 'Close navigation menu' }}
         opened={drawerOpened}
         onClose={closeDrawer}
         title={
@@ -120,17 +144,23 @@ export function AppNavigation() {
         size="xs"
       >
         <Box className={classes.mobileNav}>
+          {logoutRequest.isError && (
+            <Text c="red" role="alert">
+              Could not log out. Please try again.
+            </Text>
+          )}
           {renderLinks(true)}
           {isLoggedIn ? (
             <>
-              <Text size="sm" c="dimmed" mt="md">
-                Signed in as {filesState?.user}
+              <Text size="sm" c="dimmed" mt="md" style={{ overflowWrap: 'anywhere' }}>
+                Signed in as {user?.name}
               </Text>
               <Button
                 variant="light"
                 color="gray"
                 leftSection={<IconLogout size={17} />}
                 onClick={logout}
+                loading={logoutRequest.isPending}
                 mt="sm"
                 fullWidth
               >

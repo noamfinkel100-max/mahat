@@ -1,27 +1,23 @@
 package org.mahat;
 
-import io.vertx.config.ConfigRetrieverOptions;
-import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.json.JsonObject;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
-import static org.mahat.utils.Constants.CONFIG_PATH;
-
-public class Loader {
-    private static final Logger LOGGER = LogManager.getLogger(Loader.class);
-    public static void main(String[] args) {
-        LOGGER.info("****   Cyphernod started!   ****");
-        if (!System.getenv().containsKey(CONFIG_PATH)) {
-            LOGGER.error("No configuration file found! Shutting down.");
-            System.exit(500);
+/** Environment values override the optional legacy CONFIG_PATH file. Secrets are never logged. */
+public final class Loader {
+    public static void main(String[] args) throws Exception {
+        JsonObject config = new JsonObject();
+        String path = System.getenv("CONFIG_PATH");
+        if (path != null && !path.isBlank()) config = new JsonObject(Files.readString(Path.of(path)));
+        for (String name : new String[]{"PORT", "MONGO_URL", "MONGO_DB_NAME", "S3_ENDPOINT", "S3_ACCESS_KEY",
+                "S3_SECRET_KEY", "S3_BUCKET", "SESSION_SECURE", "UPLOAD_DIR", "MAX_UPLOAD_BYTES", "ALLOWED_ORIGIN"}) {
+            String value = System.getenv(name);
+            if (value != null && !value.isBlank()) config.put(name, value);
         }
-        ConfigStoreOptions fileStore = new ConfigStoreOptions()
-                .setType("file")
-                .setConfig(new JsonObject().put("path", System.getenv().get(CONFIG_PATH)));
-        ConfigRetrieverOptions options = new ConfigRetrieverOptions()
-                .addStore(fileStore)
-                .setScanPeriod(30000);
-        new Server().start(options);
+        if (!config.containsKey("PORT") && config.containsKey("EXPOSED_PORT")) config.put("PORT", config.getValue("EXPOSED_PORT"));
+        config.put("PORT", Integer.parseInt(String.valueOf(config.getValue("PORT", 12000))));
+        new Server().start(config).onSuccess(port -> System.out.println("Cyphernod API listening on port " + port))
+                .onFailure(error -> { System.err.println("Backend startup failed: check service configuration and connectivity."); System.exit(1); });
     }
 }

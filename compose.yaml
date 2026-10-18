@@ -49,7 +49,7 @@ services:
       UPLOAD_DIR: /app/uploads
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-104857600}
     ports:
-      - "127.0.0.1:${BACKEND_HOST_PORT:-12000}:12000"fin
+      - "127.0.0.1:${BACKEND_HOST_PORT:-12000}:12000"
     depends_on:
       mongo:
         condition: service_healthy

@@ -2,7 +2,7 @@
 
 A React/Mantine and Java/Vert.x file vault with MongoDB metadata and S3-compatible encrypted object storage.
 
-This branch adds authenticated sessions, stable file IDs, recipient-specific download limits and expiration, revocation, global deletion and a redesigned upload flow. Encryption runs on the server using AES-256-GCM; the application does not claim end-to-end encryption. See [security, consistency and migration](docs/SECURITY_AND_DATA.md) before upgrading an existing deployment.
+Features include authenticated sessions, stable file IDs, recipient-specific download limits and expiration, revocation, global deletion and a redesigned upload flow. Encryption runs on the server using AES-256-GCM; the application does not claim end-to-end encryption. See [security, consistency and migration](docs/SECURITY_AND_DATA.md) before upgrading an existing deployment.
 
 ## Start locally
 
@@ -104,3 +104,22 @@ Sharing input: `{recipientId,maxDownloads,expiresAt}`. Limits are `1`, `3`, `5` 
 ## Existing data
 
 New accounts, sessions and files use `users_v2`, `sessions_v2` and `files_v2`. Grants are embedded in file documents so lifecycle state and recipient counters can be checked atomically. Legacy plaintext-password records, filename-keyed objects and stored codes are not imported automatically. They remain untouched, but do not appear in the new application. An offline owner-verified migration is required; the collision and encryption compatibility procedure is in [SECURITY_AND_DATA.md](docs/SECURITY_AND_DATA.md).
+
+## Repository guide
+
+- `compose.yaml` starts the local app stack: frontend, backend, MongoDB and MinIO. Its named database/storage volumes persist after containers stop.
+- `compose.test.yaml` starts separate, disposable MongoDB and MinIO services for automated integration and browser tests.
+- `.env.example` documents local configuration; copy it to the ignored `.env` file for local use. `.env.test.example` documents test-only values. Neither example is a place for production secrets.
+- `.github/workflows/ci.yml` runs frontend checks, backend tests, real-service integration tests and browser tests on GitHub Actions.
+- `docs/SECURITY_AND_DATA.md` explains security boundaries, sharing/deletion behavior and legacy-data migration. `docs/TESTING.md` covers test commands. `docs/STARTUP_VERIFICATION.md` records the investigation of the local backend startup issue. `docs/screenshots/` contains UI screenshots.
+- `BackEnd/` is the Java/Vert.x API; `FrontEnd/` is the React app. Each has a Dockerfile for Compose and its own development instructions.
+
+There is no Postman collection configured. The old `.postman/` and `postman/` files were empty workspace placeholders and have been removed.
+
+### Backend code map
+
+- `api/Api.java` wires routes and coordinates account and file requests. Its section headings follow the request flow: startup/routes, authentication, file metadata, upload, sharing, downloads, and deletion.
+- `api/SessionManager.java` owns the session cookie and database lifecycle.
+- `api/ObjectStorage.java` is the small MinIO/S3 adapter.
+- `handlers/Encryptor.java` owns the encrypted file format and streaming crypto; `security/PasswordHasher.java` is only for account passwords.
+- `config/Configuration.java` loads settings; `Loader.java` and `Server.java` start and stop the application.

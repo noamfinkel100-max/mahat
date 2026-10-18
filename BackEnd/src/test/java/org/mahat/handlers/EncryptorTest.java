@@ -30,17 +30,14 @@ class EncryptorTest {
 
     @Test
     void decryptsWithTheCorrectCode() throws Exception {
-        try (InputStream encrypted = Encryptor.encrypt(new ByteArrayInputStream(CONTENT), CODE);
-             InputStream decrypted = Encryptor.decrypt(encrypted, CODE)) {
-            assertArrayEquals(CONTENT, decrypted.readAllBytes());
-        }
+        assertArrayEquals(CONTENT, decrypt(encrypt(CONTENT), CODE));
     }
 
     @Test
     void rejectsAnIncorrectCodeWithoutReturningPlaintext() throws Exception {
         byte[] encrypted = encrypt(CONTENT);
         assertThrows(AEADBadTagException.class,
-                () -> Encryptor.decrypt(new ByteArrayInputStream(encrypted), "incorrect-code"));
+                () -> decrypt(encrypted, "incorrect-code"));
     }
 
     @Test
@@ -48,7 +45,7 @@ class EncryptorTest {
         byte[] encrypted = encrypt(CONTENT);
         encrypted[encrypted.length - 1] ^= 1;
         assertThrows(AEADBadTagException.class,
-                () -> Encryptor.decrypt(new ByteArrayInputStream(encrypted), CODE));
+                () -> decrypt(encrypted, CODE));
 
         encrypted[encrypted.length - 1] ^= 1;
         encrypted[36] ^= 1;
@@ -62,7 +59,7 @@ class EncryptorTest {
         for (byte[] unsupported : new byte[][]{new byte[32], "unencrypted plaintext".getBytes(StandardCharsets.UTF_8),
                 Arrays.copyOf(valid, 7), Arrays.copyOf(valid, 25), Arrays.copyOf(valid, 40)}) {
             assertThrows(Encryptor.UnsupportedEncryptedFileException.class,
-                    () -> Encryptor.decrypt(new ByteArrayInputStream(unsupported), CODE));
+                    () -> decrypt(unsupported, CODE));
         }
     }
 
@@ -71,9 +68,7 @@ class EncryptorTest {
         for (byte[] original : new byte[][]{new byte[0], CONTENT, new byte[1_000]}) {
             byte[] encrypted = encrypt(original);
             assertEquals(original.length + Encryptor.ENCRYPTION_OVERHEAD, encrypted.length);
-            try (InputStream decrypted = Encryptor.decrypt(new ByteArrayInputStream(encrypted), CODE)) {
-                assertArrayEquals(original, decrypted.readAllBytes());
-            }
+            assertArrayEquals(original, decrypt(encrypted, CODE));
         }
     }
 
@@ -165,6 +160,12 @@ class EncryptorTest {
     private static byte[] encrypt(byte[] content) throws Exception {
         ByteArrayOutputStream target = new ByteArrayOutputStream();
         Encryptor.encryptTo(new ByteArrayInputStream(content), target, CODE);
+        return target.toByteArray();
+    }
+
+    private static byte[] decrypt(byte[] content, String code) throws Exception {
+        ByteArrayOutputStream target = new ByteArrayOutputStream();
+        Encryptor.decryptTo(new ByteArrayInputStream(content), target, code);
         return target.toByteArray();
     }
 

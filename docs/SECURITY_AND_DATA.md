@@ -22,9 +22,27 @@ Deletion first atomically moves the owner's file from `ACTIVE` to `DELETING`, bl
 
 If storage or final database cleanup fails, the operation returns an error and the file remains inaccessible. Retry the same owner's DELETE request to resume cleanup. There is no distributed MongoDB/S3 transaction and no claim of atomic rollback across services. Monitor files left in `DELETING` and retry them rather than manually restoring access. The owner UI can retry pending deletions. The backend also resumes pending deletion cleanup on startup and retries periodically every 60 seconds. Incomplete uploads stay inaccessible and stale upload records become cleanup candidates after one hour. A permanently missing object or bucket requires operator recovery from backups, not an automatic grant of access.
 
-## Encryption compatibility
+## Encryption, simply explained
 
-Existing `CYPNOD01` AES-256-GCM ciphertext retains its format: magic header, random 16-byte salt, random 12-byte nonce, ciphertext and 128-bit tag. Keys derive from the supplied code using PBKDF2-HMAC-SHA256. The backend does not persist raw encryption codes. Authentication/decryption must complete before plaintext is sent. Unsupported older ciphertext is rejected explicitly, never returned as plaintext or silently rewritten.
+The file code is not stored. It is used to derive an AES-256 key, and AES-GCM encrypts the file and detects changes. The saved object is just these bytes in order:
+
+| Part | What it does | Secret? |
+| --- | --- | --- |
+| `CYPNOD01` header (8 bytes) | Identifies the file format so the reader can reject unknown or incomplete files. | No |
+| Random salt (16 bytes) | Makes the derived key different for each file, even when a code is reused. | No |
+| Random nonce (12 bytes) | Makes AES-GCM's starting value unique for each encryption. | No |
+| Ciphertext (same length as the original) | The encrypted file contents. | Yes |
+| Authentication tag (16 bytes) | Detects an incorrect code or modified ciphertext. | No |
+
+When reading a file, the backend reads the header, salt and nonce, derives the same key from the supplied code and salt, then decrypts the ciphertext. AES-GCM validates the tag at the end. Plaintext is kept in a private temporary file and is not sent unless that final check succeeds.
+
+The salt and nonce must be saved with the ciphertext because decryption needs them; they are safe to store publicly and are not extra secrets. The header is a short format/version marker. Without it, the backend could not reliably distinguish supported encrypted files from unrelated or truncated data. Base64 only converts bytes into printable text; it is reversible and is **not encryption**.
+
+This is the existing `CYPNOD01` format: PBKDF2-HMAC-SHA256 derives the key, and AES-256-GCM encrypts/authenticates. The format remains unchanged so stored files continue to work. Unsupported older ciphertext is rejected, never returned as plaintext or silently rewritten.
+
+## Password storage, simply explained
+
+Account passwords use PBKDF2-HMAC-SHA256, separately from file codes. The database stores an algorithm label, work factor, random salt and derived hash. On sign-in the backend repeats the derivation and compares the result. The random salt makes equal passwords store different hashes; the work factor makes guessing expensive. Passwords cannot be recovered from the stored hash. Base64 in the stored value only makes binary salt/hash bytes printable.
 
 ## Legacy migration: deliberate and offline
 

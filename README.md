@@ -103,7 +103,7 @@ Sharing input: `{recipientId,maxDownloads,expiresAt}`. Limits are `1`, `3`, `5` 
 
 ## Existing data
 
-New accounts, sessions and files use `users_v2`, `sessions_v2` and `files_v2`. Grants are embedded in file documents so lifecycle state and recipient counters can be checked atomically. Legacy plaintext-password records, filename-keyed objects and stored codes are not imported automatically. They remain untouched, but do not appear in the new application. An offline owner-verified migration is required; the collision and encryption compatibility procedure is in [SECURITY_AND_DATA.md](docs/SECURITY_AND_DATA.md).
+Accounts, sessions and files use the MongoDB collections `users`, `sessions` and `files`. Grants are embedded in file documents so lifecycle state and recipient counters can be checked atomically. The application does not import legacy plaintext-password records, filename-keyed objects or stored codes. If those legacy collections already exist under these names, back up the database and perform the documented owner-verified migration before running this version; do not point this version at legacy data without that review. See [SECURITY_AND_DATA.md](docs/SECURITY_AND_DATA.md) for the migration procedure.
 
 ## Repository guide
 
@@ -118,7 +118,9 @@ There is no Postman collection configured. The old `.postman/` and `postman/` fi
 
 ### Backend code map
 
-- `api/Api.java` wires routes and coordinates account and file requests. Its section headings follow the request flow: startup/routes, authentication, file metadata, upload, sharing, downloads, and deletion.
+- `api/Api.java` owns application setup, shared request guards, health checks and account authentication.
+- `api/FileApi.java` registers file routes and handles uploads and deletion cleanup.
+- `api/FileSupport.java` contains shared request, access-check and file-metadata helpers; `api/ShareApi.java` and `api/DownloadApi.java` keep sharing and download workflows separate.
 - `api/SessionManager.java` owns the session cookie and database lifecycle.
 - `api/ObjectStorage.java` is the small MinIO/S3 adapter.
 - `handlers/Encryptor.java` owns the encrypted file format and streaming crypto; `security/PasswordHasher.java` is only for account passwords.

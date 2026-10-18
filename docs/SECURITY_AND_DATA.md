@@ -1,6 +1,6 @@
 # Security and data model
 
-This change replaces the legacy unauthenticated filename API with `/api`. It is a breaking API change: old clients must update together with the backend. No production data is deleted automatically.
+This change replaces the legacy unauthenticated filename API with `/api`. It is a breaking API change: old clients must update together with the backend. The current application uses MongoDB collections named `users`, `sessions` and `files`, which may overlap collections from older deployments. Back up and review existing data before running this version against a database containing legacy records. No production data is deleted automatically.
 
 ## Authentication and authorization
 
@@ -46,7 +46,7 @@ Account passwords use PBKDF2-HMAC-SHA256, separately from file codes. The databa
 
 ## Legacy migration: deliberate and offline
 
-The previous schema stored plaintext passwords, filename-keyed objects, raw file codes and recipient arrays. These records are not trusted as new sessions or permissions. The new application uses versioned collections; it does not silently import or delete legacy users, objects or documents.
+The previous schema stored plaintext passwords, filename-keyed objects, raw file codes and recipient arrays. These records are not trusted as new sessions or permissions. The current application uses the `users`, `sessions` and `files` collections, and does not silently import or delete legacy users, objects or documents. Because the collection names may overlap, do not start it against an old database until you have completed an owner-verified migration or chosen a separate empty database.
 
 Before upgrading a populated deployment:
 

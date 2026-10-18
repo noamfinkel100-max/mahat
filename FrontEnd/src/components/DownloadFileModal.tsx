@@ -67,6 +67,7 @@ export function DownloadFileModal({ file, close }: { file: StoredFile; close: Vo
       withCloseButton={!busy}
     >
       <form
+        autoComplete="off"
         onSubmit={(event) => {
           event.preventDefault();
           void download();
@@ -89,7 +90,7 @@ export function DownloadFileModal({ file, close }: { file: StoredFile; close: Vo
           <PasswordInput
             visibilityToggleButtonProps={{ 'aria-label': 'Toggle password visibility' }}
             label="Encryption code"
-            autoComplete="off"
+            autoComplete="new-password"
             placeholder="Enter your encryption code"
             value={code}
             onChange={(event) => setCode(event.currentTarget.value)}

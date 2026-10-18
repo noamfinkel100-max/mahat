@@ -96,6 +96,10 @@ public final class Configuration {
         return !(value instanceof String text) || text.isBlank();
     }
 
+    private static boolean isDefaultLocalBucketCredentials(String accessKey, String secretKey) {
+        return "cyphernod-dev".equals(accessKey) && "cyphernod-local-only-password".equals(secretKey);
+    }
+
     private static String localIpv4(String endpoint) {
         try {
             URI uri = URI.create(endpoint);

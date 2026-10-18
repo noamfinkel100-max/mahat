@@ -18,6 +18,7 @@ test('registration, protected pages, incorrect credentials, and secure cookie lo
   actor,
 }, info) => {
   const user = await actor('auth', true);
+  await expect(user.page).toHaveTitle('Cyphernod | Encrypted file vault');
   const cookies = await user.context.cookies();
   expect(cookies.some((cookie) => cookie.httpOnly && cookie.sameSite === 'Strict')).toBe(true);
   await user.context.request.post('/api/auth/logout');
@@ -476,6 +477,10 @@ test('mobile drag and drop, accessible controls, and sharing form fit a narrow s
   const owner = await actor('mobile');
   await owner.page.setViewportSize({ width: 390, height: 844 });
   await openLibrary(owner);
+  await expect(owner.page.locator('meta[name="viewport"]')).not.toHaveAttribute(
+    'content',
+    /user-scalable\s*=\s*no|max-scale\s*=\s*1/i
+  );
   await owner.page.getByRole('button', { name: 'Upload a file', exact: true }).click();
   const dialog = owner.page.getByRole('dialog', { name: 'Upload a file', exact: true });
   const transfer = await owner.page.evaluateHandle(() => {

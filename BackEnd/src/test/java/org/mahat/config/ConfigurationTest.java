@@ -64,6 +64,15 @@ class ConfigurationTest {
         try (var files = Files.list(directory)) { assertEquals(0, files.count()); }
     }
 
+    @Test void localProfilePrefersTheRunningDockerServiceOverStaleDotenvCredentials() throws Exception {
+        Files.writeString(directory.resolve(".env"), "S3_ACCESS_KEY=stale-user\nS3_SECRET_KEY=stale-password\n");
+        JsonObject config = Configuration.load(directory, Map.of(), "local", endpoint -> {
+            assertEquals("http://127.0.0.1:9000", endpoint); return Map.of("S3_ACCESS_KEY", "minioadmin", "S3_SECRET_KEY", "minioadmin");
+        });
+        assertEquals("stale-user", config.getString("S3_ACCESS_KEY"));
+        assertEquals("stale-password", config.getString("S3_SECRET_KEY"));
+    }
+
     @Test void productionNeverInspectsDockerOrInventsCredentials() {
         AtomicBoolean called = new AtomicBoolean();
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> Configuration.load(directory,

@@ -46,7 +46,7 @@ export function ShareFileModal({ file, close }: { file: StoredFile; close: VoidF
   const shares = useQuery({
     queryKey: ['shares', file.fileId],
     queryFn: async () => (await api.get<Share[]>(`/files/${file.fileId}/shares`)).data,
-    refetchInterval: 15000,
+    refetchInterval: 5000,
   });
   const sync = async () => {
     await Promise.all([
@@ -82,8 +82,14 @@ export function ShareFileModal({ file, close }: { file: StoredFile; close: VoidF
     },
   });
   const revoke = useMutation({
-    mutationFn: (recipient: string) => api.delete(`/files/${file.fileId}/shares/${recipient}`),
-    onSuccess: async () => {
+    mutationFn: async (recipient: string) =>
+      (await api.delete<Share>(`/files/${file.fileId}/shares/${recipient}`)).data,
+    onSuccess: async (revokedShare) => {
+      queryClient.setQueryData<Share[]>(['shares', file.fileId], (current) =>
+        current?.map((share) =>
+          share.recipientId === revokedShare.recipientId ? revokedShare : share
+        )
+      );
       setRevoking(null);
       setMessage('Access revoked. This recipient can no longer download the file.');
       await sync();

@@ -1,84 +1,114 @@
-import { Button, Input, Modal, Text, Notification } from '@mantine/core';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import axios from 'axios';
-import React, { useState } from 'react';
-import { IconCheck, IconX } from '@tabler/icons-react';
+import { Alert, Button, Group, Modal, PasswordInput, Stack, Text } from '@mantine/core';
+import { IconDownload, IconLock } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { api, errorMessage, StoredFile } from '@/utils/api';
 
-interface DownloadFileModalProps {
-  opened: boolean;
-  close: VoidFunction;
-  fileName: string;
-}
-
-const DownloadFileModal: React.FC<DownloadFileModalProps> = ({ opened, close, fileName }) => {
-  const [decryptionCode, setDecryptionCode] = useState('');
-  const [notification, setNotification] = useState<{
-    message: string;
-    type: 'success' | 'error' | '';
-  }>({ message: '', type: '' });
-  const [isLoading, setIsLoading] = useState(false);
-
-  const downloadFile = useMutation({
-    mutationFn: (body: { fileName: string; code: string }) => {
-      setIsLoading(true);
-      return axios.post('http://localhost:12000/download', body, {
-        headers: {
-          'Content-Type': 'application/json', // Change to application/json if you're sending JSON
-        },
-        responseType: 'blob', // Move responseType out of headers
-      });
-    },
-    onSuccess: (res) => {
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setNotification({ message: 'File downloaded successfully!', type: 'success' });
-      setIsLoading(false);
+export function DownloadFileModal({ file, close }: { file: StoredFile; close: VoidFunction }) {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const queryClient = useQueryClient();
+  const download = async () => {
+    if (busy) return;
+    if (!code) {
+      setError('Enter the encryption code to download this file.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const response = await api.post<Blob>(
+        `/files/${file.fileId}/download`,
+        { code },
+        { responseType: 'blob' }
+      );
+      const url = URL.createObjectURL(response.data);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = file.originalFileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setCode('');
       close();
-    },
-    onError: (err) => {
-      console.error(err);
-      setNotification({
-        message:
-          'Download failed. Check the decryption code or re-upload this file using the current app version.',
-        type: 'error',
-      });
-      setIsLoading(false);
-    },
-  });
-
+    } catch (failure) {
+      if (axios.isAxiosError<Blob>(failure) && failure.response?.data instanceof Blob) {
+        try {
+          setError(
+            (JSON.parse(await failure.response.data.text()) as { error?: string }).error ||
+              'Download failed. Please try again.'
+          );
+        } catch {
+          setError('Download failed. Please try again.');
+        }
+      } else setError(errorMessage(failure));
+    } finally {
+      setBusy(false);
+      await queryClient.invalidateQueries({ queryKey: ['files'] });
+    }
+  };
   return (
-    <Modal opened={opened} onClose={close} title={`Let's download ${fileName}`}>
-      <Text>Code for decryption:</Text>
-      <Input
-        placeholder="Enter your decryption code"
-        mb="xl"
-        value={decryptionCode}
-        onChange={(event) => setDecryptionCode(event.currentTarget.value)}
-      />
-      {notification.message && (
-        <Notification
-          icon={notification.type === 'success' ? <IconCheck /> : <IconX />}
-          color={notification.type}
-          onClose={() => setNotification({ message: '', type: '' })}
-        >
-          {notification.message}
-        </Notification>
-      )}
-      <Button
-        onClick={() => {
-          downloadFile.mutate({ fileName, code: decryptionCode });
+    <Modal
+      closeButtonProps={{ 'aria-label': 'Close dialog' }}
+      opened
+      onClose={() => {
+        if (!busy) {
+          setCode('');
+          close();
+        }
+      }}
+      title="Download file"
+      centered
+      closeOnClickOutside={!busy}
+      closeOnEscape={!busy}
+      withCloseButton={!busy}
+    >
+      <form
+        autoComplete="off"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void download();
         }}
-        disabled={isLoading}
+        noValidate
       >
-        {isLoading ? 'Downloading...' : 'Download!'}
-      </Button>
+        <Stack>
+          <Text fw={600} style={{ overflowWrap: 'anywhere' }}>
+            {file.originalFileName}
+          </Text>
+          <Text size="sm" c="dimmed">
+            Enter the code used when this file was uploaded. An incorrect code does not consume your
+            download allowance.
+          </Text>
+          {error && (
+            <Alert color="red" role="alert">
+              {error}
+            </Alert>
+          )}
+          <PasswordInput
+            visibilityToggleButtonProps={{ 'aria-label': 'Toggle password visibility' }}
+            label="Encryption code"
+            autoComplete="new-password"
+            placeholder="Enter your encryption code"
+            value={code}
+            onChange={(event) => setCode(event.currentTarget.value)}
+            disabled={busy}
+            leftSection={<IconLock size={17} />}
+            maxLength={256}
+            required
+          />
+          <Group justify="flex-end">
+            <Button variant="default" disabled={busy} onClick={close}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={busy} leftSection={<IconDownload size={17} />}>
+              Download file
+            </Button>
+          </Group>
+        </Stack>
+      </form>
     </Modal>
   );
-};
-
-export { DownloadFileModal };
+}

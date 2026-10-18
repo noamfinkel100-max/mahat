@@ -1,0 +1,36 @@
+# A separate Compose project with disposable storage, used only by automated tests.
+# Never point this configuration at a production Mongo database or S3 bucket.
+name: cyphernod-test
+
+services:
+  mongo:
+    image: mongo:7.0
+    ports:
+      - "127.0.0.1:${TEST_MONGO_PORT:-27018}:27017"
+    tmpfs:
+      - /data/db
+      - /data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand({ping: 1}).ok ? 0 : 1)"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  minio:
+    image: bitnamilegacy/minio:2025.4.22-debian-12-r0@sha256:a26e42a4d6550d2fb7708c8ceefc60474b42c124b6f3273a081721ddf1d86b20
+    entrypoint: ["minio"]
+    command: ["server", "/bitnami/minio/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: cyphernod-test
+      MINIO_ROOT_PASSWORD: cyphernod-test-only-password
+    ports:
+      - "127.0.0.1:${TEST_MINIO_PORT:-19000}:9000"
+      - "127.0.0.1:${TEST_MINIO_CONSOLE_PORT:-19001}:9001"
+    tmpfs:
+      - /bitnami/minio/data:uid=1001,gid=0,mode=0700
+    healthcheck:
+      test: ["CMD", "curl", "--noproxy", "*", "--fail", "--silent", "http://127.0.0.1:9000/minio/health/ready"]
+      interval: 3s
+      timeout: 5s
+      start_period: 15s
+      retries: 30

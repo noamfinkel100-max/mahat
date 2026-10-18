@@ -1,4 +1,4 @@
-import { Badge, Box, Group, Stack, Text, ThemeIcon, Title } from '@mantine/core';
+import { Badge, Box, Group, Stack, Text, Title } from '@mantine/core';
 import { IconLock, IconShieldCheck, IconUsers } from '@tabler/icons-react';
 import { WelcomeButtons } from '@/components/WelcomeButtons';
 import classes from './Welcome.module.css';

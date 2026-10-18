@@ -1,36 +1,58 @@
 import '@mantine/core/styles.css';
+import { useEffect } from 'react';
 import { MantineProvider } from '@mantine/core';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Router } from './Router';
 import { theme } from './theme';
-import React, { useState } from 'react';
+import { api, User } from './utils/api';
+import { parseUserSession } from './utils/userSession';
+import { SessionContext } from './utils/session';
 
-export type filesStateType = {
-  userId: string;
-  user: string;
-  myFiles: Record<string, string>;
-  sharedWithMe: string[];
-};
-
-export const FilesContext = React.createContext<{
-  filesState: filesStateType | undefined;
-  setFilesState: React.Dispatch<React.SetStateAction<filesStateType | undefined>>;
-}>({
-  filesState: undefined,
-  setFilesState: () => {},
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: true } },
 });
 
+function Session() {
+  useEffect(() => {
+    const interceptor = api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          queryClient.setQueryData(['session'], null);
+          queryClient.removeQueries({
+            predicate: (query) => ['files', 'shares', 'users'].includes(String(query.queryKey[0])),
+          });
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => api.interceptors.response.eject(interceptor);
+  }, []);
+  const session = useQuery({
+    queryKey: ['session'],
+    queryFn: async () => {
+      try {
+        return parseUserSession((await api.get<User>('/auth/me')).data);
+      } catch (error) {
+        if ((error as { response?: { status?: number } }).response?.status === 401) return null;
+        throw error;
+      }
+    },
+    staleTime: 60000,
+    refetchInterval: 60000,
+  });
+  return (
+    <SessionContext.Provider value={{ user: session.data ?? null, loading: session.isPending }}>
+      <Router />
+    </SessionContext.Provider>
+  );
+}
+
 export default function App() {
-  const [filesState, setFilesState] = useState<filesStateType>();
-
-  const queryClient = new QueryClient();
-
   return (
     <QueryClientProvider client={queryClient}>
-      <MantineProvider theme={theme}>
-        <FilesContext.Provider value={{ filesState, setFilesState }}>
-          <Router />
-        </FilesContext.Provider>
+      <MantineProvider theme={theme} defaultColorScheme="auto">
+        <Session />
       </MantineProvider>
     </QueryClientProvider>
   );

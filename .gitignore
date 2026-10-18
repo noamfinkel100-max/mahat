@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+!.env.test.example
+FrontEnd/playwright-report/
+FrontEnd/test-results/
+BackEnd/backend.log
+service-diagnostics.log
+*.pid
